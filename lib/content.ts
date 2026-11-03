@@ -1,0 +1,75 @@
+// ✏️  Edit everything personal about the portfolio here.
+
+export const content = {
+  name: "Sourabh",
+  tagline: "Creative Developer · 3D Web",
+  about: [
+    "I'm Sourabh, a web engineer who loves building things that feel alive in the browser. Throughout my journey I've worn many hats: designer, project lead and front/back-end developer.",
+    "Most of what I know I learned by doing — shipping real products, breaking things and fixing them again. I'm still as curious and passionate as on day one.",
+    "With this website I wanted to show what I've been exploring lately, especially real-time 3D on the web. You'll also find a few of my favourite projects.",
+    "Keep scrolling to discover the rest :)",
+  ],
+  skills: [
+    "Project Management",
+    "Web Design",
+    "UX/UI Process",
+    "Front-End Development",
+    "Back-End Development",
+    "3D & WebGL",
+  ],
+  projects: [
+    {
+      title: "SD-Here",
+      kind: "Brand & Website",
+      year: "2026",
+      description: "This very site — a scroll-driven 3D journey built with Next.js and Three.js.",
+      colors: ["#f2a7b5", "#5b3a5e"],
+      url: "#",
+    },
+    {
+      title: "Pulse",
+      kind: "Product Platform",
+      year: "2025",
+      description: "Product design and full-stack development of a modern SaaS platform.",
+      colors: ["#9ec5e8", "#3c4a7a"],
+      url: "#",
+    },
+    {
+      title: "Lumen",
+      kind: "E-commerce",
+      year: "2025",
+      description: "Headless storefront with blazing fast pages and a custom CMS.",
+      colors: ["#f7c98b", "#7a3f2c"],
+      url: "#",
+    },
+    {
+      title: "Orbit UI",
+      kind: "Design System",
+      year: "2024",
+      description: "A component library and tokens shared across five products.",
+      colors: ["#c7b6f2", "#40336b"],
+      url: "#",
+    },
+    {
+      title: "Atlas",
+      kind: "Data Visualisation",
+      year: "2024",
+      description: "Interactive maps and dashboards for real-time logistics data.",
+      colors: ["#9fe0c4", "#2c5a4f"],
+      url: "#",
+    },
+    {
+      title: "Nova Studio",
+      kind: "Creative Agency",
+      year: "2023",
+      description: "Award-style agency website with WebGL transitions.",
+      colors: ["#f59a8c", "#5a2a36"],
+      url: "#",
+    },
+  ],
+  contacts: [
+    { label: "Email", glyph: "@", url: "mailto:hello@example.com" },
+    { label: "GitHub", glyph: "G", url: "https://github.com/sourabh0333" },
+    { label: "LinkedIn", glyph: "in", url: "https://www.linkedin.com/" },
+  ],
+};
