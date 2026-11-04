@@ -52,15 +52,15 @@ const towerFragment = /* glsl */ `
     vec3 base = vColor * (0.55 + 0.45 * max(dot(vNormalW, normalize(vec3(-0.4, 0.6, 0.5))), 0.0));
     vec3 col = base;
     if (abs(vNormalW.y) < 0.5) {
-      vec2 cell = floor(uv / vec2(2.2, 3.2));
-      vec2 f = fract(uv / vec2(2.2, 3.2));
+      vec2 cell = floor(uv / vec2(1.6, 2.6));
+      vec2 f = fract(uv / vec2(1.6, 2.6));
       float window = step(0.18, f.x) * step(f.x, 0.82) * step(0.22, f.y) * step(f.y, 0.78);
       float r = hash(cell + vSeed * 13.1);
-      float lit = step(0.62, r);
+      float lit = step(0.7, r);
       float flicker = step(0.995, hash(cell + floor(uTime * 0.2) + vSeed));
       lit = max(lit, flicker);
       vec3 warm = mix(vec3(1.0, 0.72, 0.42), vec3(0.75, 0.85, 1.0), step(0.85, hash(cell * 1.7 + vSeed)));
-      col = mix(base, warm * (0.9 + r * 0.6), window * lit);
+      col = mix(base, warm * (0.55 + r * 0.45), window * lit);
       col = mix(col, base * 1.6, window * (1.0 - lit) * 0.25);
       // street glow climbing up the facade
       col += vec3(1.0, 0.55, 0.3) * 0.12 * exp(-(p.y) * 0.05);
@@ -84,7 +84,8 @@ function Towers() {
         const x = gx * 26 + (r() - 0.5) * 8;
         const z = gz * 26 + (r() - 0.5) * 8;
         // keep a clear patch where our building stands and in front of the views
-        if (x > -40 && x < 32 && z > -24 && z < 24) continue;
+        // views look out over -z (windows) and +x (balcony): keep the near blocks low and far away
+        if (x > -60 && x < 70 && z > -80 && z < 40) continue;
         const dist = Math.hypot(x, z);
         if (dist > 380) continue;
         const w = 12 + r() * 12;

@@ -1193,7 +1193,7 @@ body:has(.scroll-space)::-webkit-scrollbar {
   translate: 0 -50%;
 }
 .panel-right {
-  right: clamp(16px, 7vw, 120px);
+  right: max(150px, 9vw);
   top: 50%;
   translate: 0 -50%;
 }

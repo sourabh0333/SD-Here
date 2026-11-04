@@ -97,10 +97,15 @@ export function LoftScene() {
     for (let i = 0; i < 6; i++) {
       const src = baked.realtime[`poster_${i}`];
       if (!src || !posters[i]) continue;
+      // the exported planes face the wall: render their back side and flip the map upright
+      const map = posters[i];
+      map.wrapS = map.wrapT = THREE.RepeatWrapping;
+      map.repeat.set(-1, -1);
+      map.offset.set(1, 1);
       // posters live in the warm gallery light: tint to match the bake
       const mesh = new THREE.Mesh(
         src.geometry,
-        new THREE.MeshBasicMaterial({ map: posters[i], color: new THREE.Color("#f3dcc4"), toneMapped: false }),
+        new THREE.MeshBasicMaterial({ map, color: new THREE.Color("#f3dcc4"), side: THREE.BackSide, toneMapped: false }),
       );
       src.updateWorldMatrix(true, false);
       mesh.applyMatrix4(src.matrixWorld);
