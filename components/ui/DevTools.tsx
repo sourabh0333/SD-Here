@@ -8,7 +8,7 @@ import { inspector, setInspector, subscribeInspector, toggleInspector } from "@/
 import { getTier } from "@/lib/quality";
 import { onProgress, scroll, scrollToProgress } from "@/lib/scroll";
 import { toggleSound } from "@/lib/sound";
-import { MENU, T } from "@/lib/timeline";
+import { STATIONS, STATION_AT } from "@/lib/loft";
 
 // ── Tiny syntax highlighter for the inspector snippets ────────────────────
 const TOKEN =
@@ -148,8 +148,7 @@ function PaletteDialog({ onClose }: { onClose: () => void }) {
     const go = (at: number) => () => scrollToProgress(at);
     const github = content.contacts.find((c) => c.label === "GitHub")?.url;
     return [
-      ...MENU.map((m) => ({ id: `go-${m.label}`, label: m.label, group: "Go to", run: go(m.at) })),
-      { id: "go-finale", label: "Finale", group: "Go to", run: go(T.thanks[0] + 0.02) },
+      ...STATIONS.map((m) => ({ id: `go-${m.id}`, label: m.label, group: "Go to", run: go(STATION_AT[m.id]) })),
       ...content.projects.map((p) => ({
         id: `p-${p.slug}`,
         label: p.title,
@@ -292,7 +291,7 @@ export function useShortcuts(openPalette: () => void, closePalette: () => void) 
         closePalette();
       } else if (k === "j" || k === "k") {
         // jump to the next / previous chapter
-        const stops = MENU.map((m) => m.at).concat(T.thanks[0] + 0.02);
+        const stops = STATIONS.map((m) => STATION_AT[m.id]);
         const now = scroll.target;
         const next = k === "j" ? stops.find((s) => s > now + 0.005) : [...stops].reverse().find((s) => s < now - 0.005);
         if (next !== undefined) scrollToProgress(next);
