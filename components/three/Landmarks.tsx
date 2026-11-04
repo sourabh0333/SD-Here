@@ -3,7 +3,7 @@
 import { useFrame, type ThreeElements } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
-import { beam, merge, rng } from "@/lib/geo";
+import { beam, grainMaterial, merge, rng } from "@/lib/geo";
 
 const v = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
 
@@ -104,11 +104,33 @@ function towerGeometry() {
 
 export function Tower(props: ThreeElements["group"]) {
   const geo = useMemo(() => towerGeometry(), []);
+  const stone = useMemo(() => grainMaterial("#c98f86", 0.3), []);
+  const plinth = useMemo(() => {
+    const parts: THREE.BufferGeometry[] = [];
+    for (const [sx, sz] of [
+      [1, 1],
+      [-1, 1],
+      [-1, -1],
+      [1, -1],
+    ]) {
+      const g = new THREE.BoxGeometry(7, 2.6, 7);
+      g.translate(sx * 12.4, 1.3, sz * 12.4);
+      parts.push(g);
+      const cap = new THREE.BoxGeometry(7.6, 0.4, 7.6);
+      cap.translate(sx * 12.4, 2.7, sz * 12.4);
+      parts.push(cap);
+    }
+    const m = merge(parts);
+    const uv = m.attributes.uv as THREE.BufferAttribute;
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 2, uv.getY(i) * 1);
+    return m;
+  }, []);
   return (
     <group {...props}>
       <mesh geometry={geo} castShadow receiveShadow>
-        <meshStandardMaterial color="#b76a63" roughness={0.55} metalness={0.35} />
+        <meshStandardMaterial color="#9c564f" roughness={0.5} metalness={0.45} />
       </mesh>
+      <mesh geometry={plinth} material={stone} castShadow receiveShadow />
     </group>
   );
 }
@@ -198,6 +220,7 @@ export function Bridge({
   deck = 5.5,
   width = 10,
   color = "#b9a3bd",
+  children,
   ...props
 }: ThreeElements["group"] & {
   arches?: number[][];
@@ -235,11 +258,26 @@ export function Bridge({
     return merge(parts);
   }, [arches, half, deck, width]);
 
+  const mat = useMemo(() => grainMaterial(color, 0.25), [color]);
+  useMemo(() => {
+    // world-scale UVs for the extruded shape: x/y in metres
+    const uv = geo.attributes.uv as THREE.BufferAttribute;
+    const pos = geo.attributes.position as THREE.BufferAttribute;
+    const nrm = geo.attributes.normal as THREE.BufferAttribute;
+    for (let i = 0; i < uv.count; i++) {
+      const ax = Math.abs(nrm.getX(i));
+      const az = Math.abs(nrm.getZ(i));
+      const u = az > 0.5 ? pos.getX(i) : ax > 0.5 ? pos.getZ(i) : pos.getX(i);
+      const v = az > 0.5 || ax > 0.5 ? pos.getY(i) : pos.getZ(i);
+      uv.setXY(i, u, v);
+    }
+    uv.needsUpdate = true;
+  }, [geo]);
+
   return (
     <group {...props}>
-      <mesh geometry={geo} castShadow receiveShadow>
-        <meshStandardMaterial color={color} roughness={0.85} flatShading />
-      </mesh>
+      <mesh geometry={geo} material={mat} castShadow receiveShadow />
+      {children}
     </group>
   );
 }
@@ -255,21 +293,49 @@ export function Trees({
   color?: string;
 }) {
   const crownGeo = useMemo(() => {
-    if (kind === "round") {
-      const g = new THREE.IcosahedronGeometry(1.6, 0);
-      g.translate(0, 4.2, 0);
-      return g;
-    }
+    const r = rng(kind === "round" ? 5 : 6);
     const parts: THREE.BufferGeometry[] = [];
-    for (let i = 0; i < 4; i++) {
-      const c = new THREE.ConeGeometry(2.2 - i * 0.45, 2.4, 7);
-      c.translate(0, 2.2 + i * 1.5, 0);
-      parts.push(c);
+    if (kind === "round") {
+      // many small lumpy clusters read as foliage rather than a single blob
+      for (let i = 0; i < 16; i++) {
+        const g = new THREE.IcosahedronGeometry(0.55 + r() * 0.5, 1);
+        const p = g.attributes.position as THREE.BufferAttribute;
+        for (let k = 0; k < p.count; k++) {
+          const s = 0.85 + r() * 0.3;
+          p.setXYZ(k, p.getX(k) * s, p.getY(k) * s, p.getZ(k) * s);
+        }
+        const a = r() * Math.PI * 2;
+        const rad = Math.sqrt(r()) * 1.3;
+        g.translate(Math.cos(a) * rad, 3.4 + r() * 2.2, Math.sin(a) * rad);
+        parts.push(g);
+      }
+      // a few branches
+      for (let i = 0; i < 3; i++) {
+        const a = (i / 3) * Math.PI * 2;
+        parts.push(beam(v(0, 2.4, 0), v(Math.cos(a) * 0.9, 3.9, Math.sin(a) * 0.9), 0.12));
+      }
+    } else {
+      for (let i = 0; i < 5; i++) {
+        const c = new THREE.ConeGeometry(2.3 - i * 0.42, 2.2, 9);
+        c.translate(0, 2 + i * 1.35, 0);
+        parts.push(c);
+      }
     }
     const m = merge(parts);
+    // subtle per-vertex shading so crowns read as foliage, not a single colour
+    const col = new Float32Array(m.attributes.position.count * 3);
+    const base = new THREE.Color(color);
+    for (let i = 0; i < m.attributes.position.count; i++) {
+      const y = m.attributes.position.getY(i);
+      const k = 0.78 + r() * 0.25 + (y - 3) * 0.04;
+      col[i * 3] = base.r * k;
+      col[i * 3 + 1] = base.g * k;
+      col[i * 3 + 2] = base.b * k;
+    }
+    m.setAttribute("color", new THREE.BufferAttribute(col, 3));
     m.computeVertexNormals();
     return m;
-  }, [kind]);
+  }, [kind, color]);
 
   const setup = (mesh: THREE.InstancedMesh | null, isTrunk: boolean) => {
     if (!mesh) return;
@@ -295,7 +361,7 @@ export function Trees({
         castShadow
         receiveShadow
       >
-        <meshStandardMaterial color={color} roughness={0.8} flatShading />
+        <meshStandardMaterial vertexColors roughness={0.85} flatShading />
       </instancedMesh>
       <instancedMesh
         ref={(m) => setup(m, true)}
@@ -309,27 +375,113 @@ export function Trees({
   );
 }
 
-// ── Street lamps ──────────────────────────────────────────────────────────
-export function Lamps({ points }: { points: [number, number][] }) {
-  const geo = useMemo(() => {
+// ── Ornate street lamps ───────────────────────────────────────────────────
+function lampParts(x: number, y: number, z: number, tall = 1) {
+  const parts: THREE.BufferGeometry[] = [];
+  const add = (g: THREE.BufferGeometry, py: number) => {
+    g.translate(x, y + py * tall, z);
+    parts.push(g);
+  };
+  add(new THREE.CylinderGeometry(0.34, 0.42, 0.5, 12), 0.25);
+  add(new THREE.CylinderGeometry(0.22, 0.3, 0.5, 12), 0.7);
+  add(new THREE.CylinderGeometry(0.09, 0.16, 3.6 * tall, 12), 0.95 + 1.8 * tall);
+  add(new THREE.TorusGeometry(0.16, 0.035, 6, 16).rotateX(Math.PI / 2), 1.2);
+  add(new THREE.TorusGeometry(0.12, 0.03, 6, 16).rotateX(Math.PI / 2), 4.4);
+  add(new THREE.CylinderGeometry(0.16, 0.12, 0.18, 12), 4.5);
+  // lantern cage
+  add(new THREE.CylinderGeometry(0.34, 0.2, 0.9, 6, 1, true), 5.05);
+  add(new THREE.ConeGeometry(0.46, 0.45, 6), 5.72);
+  add(new THREE.SphereGeometry(0.08, 8, 6), 6.02);
+  return parts;
+}
+
+export function Lamps({ points, y = 0 }: { points: [number, number][]; y?: number }) {
+  const { metal, glass } = useMemo(() => {
     const parts: THREE.BufferGeometry[] = [];
+    const glassParts: THREE.BufferGeometry[] = [];
     for (const [x, z] of points) {
-      const pole = new THREE.CylinderGeometry(0.08, 0.14, 4.2, 6);
-      pole.translate(x, 2.1, z);
-      const base = new THREE.CylinderGeometry(0.25, 0.3, 0.6, 6);
-      base.translate(x, 0.3, z);
-      const lantern = new THREE.CylinderGeometry(0.32, 0.18, 0.7, 6);
-      lantern.translate(x, 4.5, z);
-      const cap = new THREE.ConeGeometry(0.38, 0.4, 6);
-      cap.translate(x, 5.05, z);
-      parts.push(pole, base, lantern, cap);
+      parts.push(...lampParts(x, y, z));
+      const g = new THREE.CylinderGeometry(0.3, 0.19, 0.78, 6);
+      g.translate(x, y + 5.05, z);
+      glassParts.push(g);
     }
-    return merge(parts);
-  }, [points]);
+    return { metal: merge(parts), glass: merge(glassParts) };
+  }, [points, y]);
   return (
-    <mesh geometry={geo} castShadow>
-      <meshStandardMaterial color="#5b4f58" roughness={0.6} metalness={0.4} />
-    </mesh>
+    <group>
+      <mesh geometry={metal} castShadow>
+        <meshStandardMaterial color="#2f2a30" roughness={0.45} metalness={0.7} />
+      </mesh>
+      <mesh geometry={glass}>
+        <meshStandardMaterial color="#fff1d6" emissive="#ffcf8a" emissiveIntensity={1.4} roughness={0.2} />
+      </mesh>
+    </group>
+  );
+}
+
+// ── Benches ───────────────────────────────────────────────────────────────
+export function Benches({ points, y = 0 }: { points: [number, number, number][]; y?: number }) {
+  const { wood, iron } = useMemo(() => {
+    const w: THREE.BufferGeometry[] = [];
+    const ir: THREE.BufferGeometry[] = [];
+    const m = new THREE.Matrix4();
+    for (const [x, z, rot] of points) {
+      m.makeRotationY(rot).setPosition(x, y, z);
+      for (let i = 0; i < 4; i++) {
+        const slat = new THREE.BoxGeometry(1.9, 0.05, 0.11);
+        slat.translate(0, 0.46, -0.2 + i * 0.13);
+        w.push(slat.applyMatrix4(m));
+      }
+      for (let i = 0; i < 3; i++) {
+        const back = new THREE.BoxGeometry(1.9, 0.11, 0.05);
+        back.rotateX(-0.2);
+        back.translate(0, 0.62 + i * 0.15, -0.27 - i * 0.03);
+        w.push(back.applyMatrix4(m));
+      }
+      for (const sx of [-0.85, 0.85]) {
+        const leg = new THREE.BoxGeometry(0.07, 0.46, 0.5);
+        leg.translate(sx, 0.23, -0.05);
+        ir.push(leg.applyMatrix4(m));
+        const arm = new THREE.BoxGeometry(0.06, 0.06, 0.5);
+        arm.translate(sx, 0.68, -0.05);
+        ir.push(arm.applyMatrix4(m));
+      }
+    }
+    return { wood: merge(w), iron: merge(ir) };
+  }, [points, y]);
+  return (
+    <group>
+      <mesh geometry={wood} castShadow receiveShadow>
+        <meshStandardMaterial color="#7a5a43" roughness={0.75} />
+      </mesh>
+      <mesh geometry={iron} castShadow>
+        <meshStandardMaterial color="#2b2a2e" roughness={0.5} metalness={0.6} />
+      </mesh>
+    </group>
+  );
+}
+
+// ── Kiosk (Parisian newsstand) ────────────────────────────────────────────
+export function Kiosk(props: ThreeElements["group"]) {
+  return (
+    <group {...props}>
+      <mesh position={[0, 1.4, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[1.5, 1.5, 2.8, 8]} />
+        <meshStandardMaterial color="#4b5a46" roughness={0.6} metalness={0.2} />
+      </mesh>
+      <mesh position={[0, 1.6, 0]}>
+        <cylinderGeometry args={[1.52, 1.52, 1.1, 8, 1, true]} />
+        <meshStandardMaterial color="#e9ddc9" roughness={0.8} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh position={[0, 3.1, 0]} castShadow>
+        <coneGeometry args={[2.1, 1.1, 8]} />
+        <meshStandardMaterial color="#3e4a3a" roughness={0.5} metalness={0.3} />
+      </mesh>
+      <mesh position={[0, 3.9, 0]}>
+        <sphereGeometry args={[0.22, 12, 8]} />
+        <meshStandardMaterial color="#c8a24c" metalness={1} roughness={0.3} />
+      </mesh>
+    </group>
   );
 }
 
@@ -357,24 +509,61 @@ export function Turbine(props: ThreeElements["group"]) {
   );
 }
 
-// ── Café umbrellas & tables ───────────────────────────────────────────────
+// ── Café terrace: parasols, tables and chairs ─────────────────────────────
 export function Cafe({ points, color = "#f4d7dc" }: { points: [number, number][]; color?: string }) {
-  const geo = useMemo(() => {
-    const parts: THREE.BufferGeometry[] = [];
+  const { cloth, metal, chairs } = useMemo(() => {
+    const c: THREE.BufferGeometry[] = [];
+    const m: THREE.BufferGeometry[] = [];
+    const ch: THREE.BufferGeometry[] = [];
+    const r = rng(points.length + 3);
     for (const [x, z] of points) {
-      const top = new THREE.ConeGeometry(1.5, 0.6, 8);
-      top.translate(x, 2.4, z);
-      const pole = new THREE.CylinderGeometry(0.04, 0.04, 2.3, 5);
+      const top = new THREE.ConeGeometry(1.6, 0.55, 12, 1, true);
+      top.translate(x, 2.45, z);
+      c.push(top);
+      const pole = new THREE.CylinderGeometry(0.035, 0.035, 2.3, 6);
       pole.translate(x, 1.15, z);
-      const table = new THREE.CylinderGeometry(0.5, 0.5, 0.06, 10);
-      table.translate(x, 0.75, z);
-      parts.push(top, pole, table);
+      m.push(pole);
+      const table = new THREE.CylinderGeometry(0.42, 0.42, 0.04, 16);
+      table.translate(x, 0.74, z);
+      m.push(table);
+      const foot = new THREE.CylinderGeometry(0.05, 0.25, 0.72, 8);
+      foot.translate(x, 0.36, z);
+      m.push(foot);
+      for (let k = 0; k < 3; k++) {
+        const a = (k / 3) * Math.PI * 2 + r();
+        const cx = x + Math.cos(a) * 0.8;
+        const cz = z + Math.sin(a) * 0.8;
+        const rot = new THREE.Matrix4().makeRotationY(-a + Math.PI / 2).setPosition(cx, 0, cz);
+        const seat = new THREE.BoxGeometry(0.42, 0.04, 0.42);
+        seat.translate(0, 0.45, 0);
+        const back = new THREE.BoxGeometry(0.42, 0.4, 0.04);
+        back.translate(0, 0.67, -0.2);
+        ch.push(seat.applyMatrix4(rot), back.applyMatrix4(rot));
+        for (const [lx, lz] of [
+          [-0.18, -0.18],
+          [0.18, -0.18],
+          [-0.18, 0.18],
+          [0.18, 0.18],
+        ]) {
+          const leg = new THREE.CylinderGeometry(0.015, 0.015, 0.45, 5);
+          leg.translate(lx, 0.225, lz);
+          m.push(leg.applyMatrix4(rot));
+        }
+      }
     }
-    return merge(parts);
+    return { cloth: merge(c), metal: merge(m), chairs: merge(ch) };
   }, [points]);
   return (
-    <mesh geometry={geo} castShadow>
-      <meshStandardMaterial color={color} roughness={0.8} flatShading />
-    </mesh>
+    <group>
+      <mesh geometry={cloth} castShadow>
+        <meshStandardMaterial color={color} roughness={0.9} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh geometry={metal} castShadow>
+        <meshStandardMaterial color="#3a3638" roughness={0.4} metalness={0.7} />
+      </mesh>
+      <mesh geometry={chairs} castShadow receiveShadow>
+        <meshStandardMaterial color="#e8b9c2" roughness={0.6} />
+      </mesh>
+    </group>
   );
 }

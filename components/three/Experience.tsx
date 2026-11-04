@@ -1,16 +1,21 @@
 "use client";
 
-import { AdaptiveDpr, Environment, Html, Lightformer } from "@react-three/drei";
+import { AdaptiveDpr, Html, PerformanceMonitor, useEnvironment, useTexture } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { Suspense, useEffect, useMemo, useRef, type ReactNode } from "react";
+import { Bloom, EffectComposer, SMAA, ToneMapping, Vignette } from "@react-three/postprocessing";
+import { ToneMappingMode } from "postprocessing";
+import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import * as THREE from "three";
+import { Lensflare, LensflareElement } from "three/examples/jsm/objects/Lensflare.js";
 import { content } from "@/lib/content";
 import { scroll } from "@/lib/scroll";
 import { T, clamp, window01 } from "@/lib/timeline";
 import { ABOUT_SPOT, cameraAt } from "@/lib/world";
 import { Characters } from "./Characters";
 import { ContactZone } from "./ContactZone";
-import { ParisZone } from "./ParisZone";
+import { sunDirection } from "./Nature";
+import { Ground, ParisZone, Road } from "./ParisZone";
+import { RideZone } from "./RideZone";
 import { SkyDome, type SkyHandle } from "./SkyDome";
 import { SkyZone } from "./SkyZone";
 
@@ -118,13 +123,13 @@ const day = {
 
 const LOOKS: Look[] = [
   { t: 0, ...sunset },
-  { t: 0.62, ...sunset },
-  { t: 0.68, ...above },
-  { t: 0.79, ...above },
-  { t: 0.815, ...day, fog: "#f6f2f2", near: 8, far: 190 },
-  { t: 0.865, ...day, fog: "#f3f4f7", near: 25, far: 260 },
-  { t: 0.9, ...day, fog: "#d9e8f6", near: 120, far: 560 },
-  { t: 1, ...day, fog: "#d9e8f6", near: 120, far: 560 },
+  { t: 0.6, ...sunset },
+  { t: 0.665, ...above },
+  { t: 0.765, ...above },
+  { t: 0.79, ...day, fog: "#f6f2f2", near: 8, far: 190 },
+  { t: 0.84, ...day, fog: "#f3f4f7", near: 25, far: 260 },
+  { t: 0.875, ...day, fog: "#d9e8f6", near: 120, far: 620 },
+  { t: 1, ...day, fog: "#d9e8f6", near: 120, far: 620 },
 ];
 
 const COLOR_KEYS = [
@@ -145,9 +150,28 @@ function Atmosphere() {
     () => ({ a: new THREE.Color(), b: new THREE.Color(), v: new THREE.Vector3(), w: new THREE.Vector3() }),
     [],
   );
+  // Real HDR light probes: a Venice sunset for the first half, an overcast quarry for the day.
+  const sunsetEnv = useEnvironment({ files: "/hdr/venice_sunset_1k.hdr" });
+  const dayEnv = useEnvironment({ files: "/hdr/quarry_01_1k.hdr" });
+  const [flare0, flare3] = useTexture(["/textures/lensflare0.png", "/textures/lensflare3.png"]);
+  const flare = useMemo(() => {
+    const light = new THREE.PointLight(0xffffff, 0, 1);
+    const lf = new Lensflare();
+    lf.addElement(new LensflareElement(flare0, 420, 0, new THREE.Color(1, 0.86, 0.72)));
+    lf.addElement(new LensflareElement(flare3, 50, 0.55, new THREE.Color(1, 0.8, 0.8)));
+    lf.addElement(new LensflareElement(flare3, 70, 0.7));
+    lf.addElement(new LensflareElement(flare3, 110, 0.9, new THREE.Color(0.9, 0.85, 1)));
+    lf.addElement(new LensflareElement(flare3, 60, 1));
+    light.add(lf);
+    return light;
+  }, [flare0, flare3]);
 
-  useFrame(() => {
+  useFrame(({ scene, camera }) => {
     const t = scroll.current;
+    scene.environment = t < 0.785 ? sunsetEnv : dayEnv;
+    scene.environmentIntensity = t < 0.785 ? 0.55 : 0.8;
+    flare.visible = t < 0.6;
+    flare.position.copy(camera.position).addScaledVector(sunDirection, 900);
     let i = 0;
     while (i < LOOKS.length - 2 && t > LOOKS[i + 1].t) i++;
     const A = LOOKS[i];
@@ -162,6 +186,7 @@ function Atmosphere() {
     fog.far = L(A.far, B.far);
 
     tmp.v.set(...A.sun).lerp(tmp.w.set(...B.sun), k).normalize();
+    sunDirection.copy(tmp.v);
     const u = sky.current?.uniforms;
     if (u) {
       u.uSunDir.value.copy(tmp.v);
@@ -208,13 +233,7 @@ function Atmosphere() {
         shadow-camera-near={1}
         shadow-camera-far={220}
       />
-      <Environment frames={1} resolution={128}>
-        <color attach="background" args={["#d9d4dc"]} />
-        <Lightformer intensity={2} color="#ffe2cf" position={[0, 6, -10]} scale={[20, 6, 1]} />
-        <Lightformer intensity={1.4} color="#a9c4f0" position={[0, 10, 10]} scale={[20, 6, 1]} />
-        <Lightformer intensity={0.8} color="#ffffff" position={[10, 0, 0]} rotation-y={-Math.PI / 2} scale={[10, 10, 1]} />
-        <Lightformer intensity={0.5} color="#8a7f8f" position={[0, -8, 0]} rotation-x={Math.PI / 2} scale={[30, 30, 1]} />
-      </Environment>
+      <primitive object={flare} />
     </>
   );
 }
@@ -232,7 +251,7 @@ function Zone({ from, to, children }: { from: number; to: number; children: Reac
 function AboutPanel() {
   const ref = useRef<HTMLDivElement>(null);
   useFrame(() => {
-    const o = window01(scroll.current, T.about[0] + 0.005, T.about[1] + 0.005, 0.02);
+    const o = window01(scroll.current, T.hiRise[1] - 0.004, T.about[1] + 0.005, 0.02);
     if (ref.current) {
       ref.current.style.opacity = String(o);
       ref.current.style.transform = `translateY(${(1 - o) * 30}px)`;
@@ -251,33 +270,58 @@ function AboutPanel() {
   );
 }
 
+function Effects() {
+  const [high, setHigh] = useState(true);
+  return (
+    <>
+      <PerformanceMonitor onDecline={() => setHigh(false)} />
+      <EffectComposer multisampling={0} enableNormalPass={false}>
+        <Bloom mipmapBlur intensity={high ? 0.4 : 0.25} luminanceThreshold={0.9} luminanceSmoothing={0.2} />
+        <Vignette offset={0.28} darkness={0.42} />
+        <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+        <SMAA />
+      </EffectComposer>
+    </>
+  );
+}
+
 export default function Experience({ onReady }: { onReady?: () => void }) {
   return (
     <Canvas
       shadows
       dpr={[1, 1.75]}
-      gl={{ antialias: true, powerPreference: "high-performance" }}
-      camera={{ fov: 50, near: 0.3, far: 5000, position: [10, 3, 22] }}
-      onCreated={({ gl }) => {
-        gl.toneMapping = THREE.ACESFilmicToneMapping;
-        gl.toneMappingExposure = 0.95;
+      gl={{ antialias: false, powerPreference: "high-performance", stencil: false }}
+      camera={{ fov: 50, near: 0.2, far: 5000, position: [19, 2.3, 23] }}
+      onCreated={({ gl, scene }) => {
+        gl.toneMappingExposure = 1;
+        if (process.env.NODE_ENV !== "production") {
+          (window as unknown as { __scene?: THREE.Scene }).__scene = scene;
+        }
       }}
     >
       <AdaptiveDpr pixelated={false} />
       <CameraRig />
       <Suspense fallback={null}>
         <Atmosphere />
-        <Zone from={0} to={0.83}>
+        <Zone from={0} to={0.7}>
+          <Ground />
+          <Road />
+        </Zone>
+        <Zone from={0} to={0.42}>
           <ParisZone />
           <AboutPanel />
         </Zone>
-        <Zone from={0.6} to={0.9}>
+        <Zone from={0.34} to={0.7}>
+          <RideZone />
+        </Zone>
+        <Zone from={0.6} to={0.88}>
           <SkyZone />
         </Zone>
-        <Zone from={0.79} to={1}>
+        <Zone from={0.76} to={1}>
           <ContactZone />
         </Zone>
         <Characters />
+        <Effects />
         <ReadySignal onReady={onReady} />
       </Suspense>
     </Canvas>

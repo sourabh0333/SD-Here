@@ -140,3 +140,122 @@ export function getCloudTextureUrl() {
   cloudUrl = c.toDataURL("image/png");
   return cloudUrl;
 }
+
+let grain: { normal: THREE.CanvasTexture; rough: THREE.CanvasTexture } | null = null;
+
+/**
+ * Tileable surface detail (normal + roughness) generated from value noise.
+ * Applied to stone, plaster and asphalt so large surfaces don't look flat.
+ */
+export function getGrain() {
+  if (grain) return grain;
+  const N = 256;
+  const r = rng(11);
+  const h = new Float32Array(N * N);
+  // a few octaves of wrapped value noise + speckles
+  for (const [cell, amp] of [
+    [32, 0.5],
+    [16, 0.3],
+    [8, 0.15],
+    [4, 0.08],
+  ] as const) {
+    const g = N / cell;
+    const lattice = Array.from({ length: g * g }, () => r());
+    for (let y = 0; y < N; y++) {
+      for (let x = 0; x < N; x++) {
+        const gx = x / cell;
+        const gy = y / cell;
+        const x0 = Math.floor(gx) % g;
+        const y0 = Math.floor(gy) % g;
+        const x1 = (x0 + 1) % g;
+        const y1 = (y0 + 1) % g;
+        const fx = gx - Math.floor(gx);
+        const fy = gy - Math.floor(gy);
+        const sx = fx * fx * (3 - 2 * fx);
+        const sy = fy * fy * (3 - 2 * fy);
+        const a = lattice[y0 * g + x0] * (1 - sx) + lattice[y0 * g + x1] * sx;
+        const b = lattice[y1 * g + x0] * (1 - sx) + lattice[y1 * g + x1] * sx;
+        h[y * N + x] += (a * (1 - sy) + b * sy) * amp;
+      }
+    }
+  }
+  for (let i = 0; i < N * N; i++) h[i] += (r() - 0.5) * 0.06;
+
+  const nc = document.createElement("canvas");
+  nc.width = nc.height = N;
+  const rc = document.createElement("canvas");
+  rc.width = rc.height = N;
+  const nctx = nc.getContext("2d")!;
+  const rctx = rc.getContext("2d")!;
+  const nimg = nctx.createImageData(N, N);
+  const rimg = rctx.createImageData(N, N);
+  const at = (x: number, y: number) => h[((y + N) % N) * N + ((x + N) % N)];
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      const dx = (at(x + 1, y) - at(x - 1, y)) * 3;
+      const dy = (at(x, y + 1) - at(x, y - 1)) * 3;
+      const len = Math.hypot(dx, dy, 1);
+      const i = (y * N + x) * 4;
+      nimg.data[i] = ((-dx / len) * 0.5 + 0.5) * 255;
+      nimg.data[i + 1] = ((dy / len) * 0.5 + 0.5) * 255;
+      nimg.data[i + 2] = (1 / len) * 255;
+      nimg.data[i + 3] = 255;
+      const rv = 200 + (at(x, y) - 0.5) * 90;
+      rimg.data[i] = rimg.data[i + 1] = rimg.data[i + 2] = rv;
+      rimg.data[i + 3] = 255;
+    }
+  }
+  nctx.putImageData(nimg, 0, 0);
+  rctx.putImageData(rimg, 0, 0);
+  const normal = new THREE.CanvasTexture(nc);
+  const rough = new THREE.CanvasTexture(rc);
+  for (const t of [normal, rough]) {
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.anisotropy = 4;
+  }
+  grain = { normal, rough };
+  return grain;
+}
+
+/** A material with surface grain, tiled `repeat` times. */
+export function grainMaterial(
+  color: THREE.ColorRepresentation,
+  repeat = 8,
+  opts: THREE.MeshStandardMaterialParameters = {},
+) {
+  const { normal, rough } = getGrain();
+  const n = normal.clone();
+  const r = rough.clone();
+  n.repeat.set(repeat, repeat);
+  r.repeat.set(repeat, repeat);
+  n.needsUpdate = r.needsUpdate = true;
+  return new THREE.MeshStandardMaterial({
+    color,
+    normalMap: n,
+    normalScale: new THREE.Vector2(0.6, 0.6),
+    roughnessMap: r,
+    roughness: 1,
+    ...opts,
+  });
+}
+
+/** Box geometry whose UVs are in world units (so tiled textures keep their scale). */
+export function worldBox(w: number, h: number, d: number, unit = 4) {
+  const g = new THREE.BoxGeometry(w, h, d);
+  const uv = g.attributes.uv as THREE.BufferAttribute;
+  const dims = [
+    [d, h],
+    [d, h],
+    [w, d],
+    [w, d],
+    [w, h],
+    [w, h],
+  ];
+  for (let f = 0; f < 6; f++) {
+    for (let k = 0; k < 4; k++) {
+      const i = f * 4 + k;
+      uv.setXY(i, (uv.getX(i) * dims[f][0]) / unit, (uv.getY(i) * dims[f][1]) / unit);
+    }
+  }
+  return g;
+}
