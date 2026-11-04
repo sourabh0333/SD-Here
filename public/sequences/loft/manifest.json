@@ -1,0 +1,13 @@
+{
+  "frames": 120,
+  "sets": {
+    "wide": {
+      "width": 1280,
+      "height": 720
+    },
+    "tall": {
+      "width": 540,
+      "height": 960
+    }
+  }
+}
