@@ -2,23 +2,36 @@
 
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import { prefersReducedMotion } from "@/lib/quality";
 import s from "./prototype.module.css";
 
 gsap.registerPlugin(ScrollTrigger);
 
 /** Frames from scripts/capture-sequence.mjs (swap in Cycles renders under the same names). */
-const FRAMES = 120;
-const src = (set: "wide" | "tall", i: number) => `/sequences/loft/${set}/${String(i + 1).padStart(4, "0")}.webp`;
+export const frameSrc = (flight: string, set: "wide" | "tall", i: number) =>
+  `/sequences/${flight}/${set}/${String(i + 1).padStart(4, "0")}.webp`;
 
-type Beat = { k: string; text: string };
+export type Beat = { k: string; title: ReactNode; body?: ReactNode };
+
+type Props = {
+  id: string;
+  /** Folder under public/sequences. */
+  flight: string;
+  frames: number;
+  label: string;
+  beats: Beat[];
+  /** Scroll length of the chapter, in screens. */
+  screens?: number;
+  /** Where the statements sit: over the left of the shot, or centred. */
+  align?: "left" | "center";
+};
 
 /**
  * A pinned chapter whose scroll plays a rendered camera flight on a canvas,
- * with big statements landing over it.
+ * with big statements landing over it. Frames load once the chapter is near.
  */
-export function Sequence({ id, beats, label }: { id: string; beats: Beat[]; label: string }) {
+export function Sequence({ id, flight, frames, label, beats, screens = 4, align = "left" }: Props) {
   const section = useRef<HTMLElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
 
@@ -32,7 +45,8 @@ export function Sequence({ id, beats, label }: { id: string; beats: Beat[]; labe
     const set = innerWidth / innerHeight < 0.9 ? "tall" : "wide";
     const images: HTMLImageElement[] = [];
     const loaded: boolean[] = [];
-    let want = reduced ? FRAMES - 1 : 0;
+    let want = reduced ? frames - 1 : 0;
+    let cancelled = false;
 
     const draw = () => {
       // the nearest frame at or before the one we want that has arrived
@@ -54,7 +68,6 @@ export function Sequence({ id, beats, label }: { id: string; beats: Beat[]; labe
       draw();
     };
 
-    // First (or, with reduced motion, last) frame straight away, then the rest in order.
     const load = (i: number) =>
       new Promise<void>((done) => {
         const img = new Image();
@@ -65,26 +78,38 @@ export function Sequence({ id, beats, label }: { id: string; beats: Beat[]; labe
           done();
         };
         img.onerror = () => done();
-        img.src = src(set, i);
+        img.src = frameSrc(flight, set, i);
         images[i] = img;
       });
-    let cancelled = false;
-    (async () => {
+
+    // The frame on screen first, then the rest in batches of eight.
+    const loadAll = async () => {
       await load(want);
       if (reduced) return;
-      for (let start = 0; start < FRAMES && !cancelled; start += 8) {
-        await Promise.all(Array.from({ length: Math.min(8, FRAMES - start) }, (_, k) => (loaded[start + k] ? null : load(start + k))));
+      for (let start = 0; start < frames && !cancelled; start += 8) {
+        const batch = Array.from({ length: Math.min(8, frames - start) }, (_, k) => start + k);
+        await Promise.all(batch.map((i) => (images[i] ? null : load(i))));
       }
-    })();
+    };
+    const near = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          near.disconnect();
+          loadAll();
+        }
+      },
+      { rootMargin: "150% 0px" },
+    );
+    near.observe(el);
 
     size();
     window.addEventListener("resize", size);
-    if (reduced) {
-      return () => {
-        cancelled = true;
-        window.removeEventListener("resize", size);
-      };
-    }
+    const cleanup = () => {
+      cancelled = true;
+      near.disconnect();
+      window.removeEventListener("resize", size);
+    };
+    if (reduced) return cleanup;
 
     // the statements stack in one place only while the scroll plays them
     el.dataset.live = "";
@@ -94,11 +119,11 @@ export function Sequence({ id, beats, label }: { id: string; beats: Beat[]; labe
         scrollTrigger: {
           trigger: el,
           start: "top top",
-          end: () => `+=${innerHeight * 4}`,
+          end: () => `+=${innerHeight * screens}`,
           pin: `.${s.seqStage}`,
           scrub: true,
           onUpdate: (st) => {
-            const next = Math.round(st.progress * (FRAMES - 1));
+            const next = Math.round(st.progress * (frames - 1));
             if (next !== want) {
               want = next;
               draw();
@@ -107,35 +132,40 @@ export function Sequence({ id, beats, label }: { id: string; beats: Beat[]; labe
         },
       });
       tl.to(`.${s.seqBar} i`, { scaleX: 1, duration: 1 }, 0);
-      // each statement rises in, holds, then lifts away
+      // each statement rises in, holds, then lifts away (the last one stays)
       const slot = 1 / beats.length;
       gsap.utils.toArray<HTMLElement>(`.${s.beat}`).forEach((b, i) => {
         const at = i * slot;
-        tl.fromTo(b, { opacity: 0, y: 80, filter: "blur(8px)" }, { opacity: 1, y: 0, filter: "blur(0px)", duration: slot * 0.3 }, at + slot * 0.05);
-        if (i < beats.length - 1) tl.to(b, { opacity: 0, y: -80, duration: slot * 0.25 }, at + slot * 0.72);
+        tl.fromTo(
+          b,
+          { autoAlpha: 0, y: 80, filter: "blur(8px)" },
+          { autoAlpha: 1, y: 0, filter: "blur(0px)", duration: slot * 0.3 },
+          at + slot * 0.05,
+        );
+        if (i < beats.length - 1) tl.to(b, { autoAlpha: 0, y: -80, duration: slot * 0.25 }, at + slot * 0.72);
       });
     }, el);
 
     return () => {
-      cancelled = true;
-      window.removeEventListener("resize", size);
+      cleanup();
       ctx.revert();
       delete el.dataset.live;
     };
-  }, [beats]);
+  }, [flight, frames, beats, screens]);
 
   return (
-    <section id={id} ref={section} className={s.seq} aria-label={label}>
+    <section id={id} ref={section} className={s.seq} data-align={align} aria-label={label}>
       <div className={s.seqStage}>
         <canvas ref={canvas} className={s.seqCanvas} aria-hidden />
         <div className={s.seqShade} aria-hidden />
         <p className={s.seqLabel}>{label}</p>
         <div className={s.beats}>
           {beats.map((b) => (
-            <p key={b.k} className={s.beat}>
+            <div key={b.k} className={s.beat}>
               <span className={s.beatKey}>{b.k}</span>
-              {b.text}
-            </p>
+              <p className={s.beatTitle}>{b.title}</p>
+              {b.body ? <div className={s.beatBody}>{b.body}</div> : null}
+            </div>
           ))}
         </div>
         <div className={s.seqBar} aria-hidden>

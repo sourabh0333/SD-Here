@@ -1,19 +1,30 @@
-// Records the loft's camera flight as a frame sequence for the scroll-played chapter.
+// Records the loft's camera flights as frame sequences for the scroll-played chapters.
 //
 //   pnpm dev            (in another terminal)
-//   node scripts/capture-sequence.mjs [baseUrl]
+//   node scripts/capture-sequence.mjs [flight…] [--base=http://localhost:3005]
 //
-// Writes public/sequences/loft/{wide,tall}/0001.webp … and manifest.json.
+// Writes public/sequences/<flight>/{wide,tall}/0001.webp … and manifest.json.
 // These frames come from the real-time loft. Swap in Cycles renders of the same
 // flight (same names, same count) for full Blender quality; the page needs no change.
 
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "playwright-core";
 
-const base = process.argv[2] ?? "http://localhost:3005";
-const out = path.resolve("public/sequences/loft");
-const FRAMES = 120;
+const args = process.argv.slice(2);
+const base = args.find((a) => a.startsWith("--base="))?.slice(7) ?? "http://localhost:3005";
+const only = args.filter((a) => !a.startsWith("--"));
+const root = path.resolve("public/sequences");
+
+/** Each flight runs between two stations from lib/loft.ts. A still has one frame. */
+const FLIGHTS = [
+  { name: "arrive", from: "hero", to: "about", frames: 120 },
+  { name: "toolbox", from: "about", to: "skills", frames: 96 },
+  { name: "shelves", from: "experience", to: "experience", frames: 1 },
+  { name: "desk", from: "experience", to: "work", frames: 96 },
+  { name: "outro", from: "cases", to: "contact", frames: 96 },
+];
+
 const QUALITY = 0.7;
 // Rendered at `render` size, saved at `width` × `height`.
 const SETS = [
@@ -42,12 +53,11 @@ const browser = await chromium.launch({
   args: ["--ignore-gpu-blocklist", "--enable-gpu-rasterization", "--use-angle=d3d11"],
 });
 
-await rm(out, { recursive: true, force: true });
-const manifest = { frames: FRAMES, sets: {} };
+const manifestPath = path.join(root, "manifest.json");
+const manifest = JSON.parse(await readFile(manifestPath, "utf8").catch(() => "{}"));
+const flights = FLIGHTS.filter((f) => !only.length || only.includes(f.name));
 
 for (const set of SETS) {
-  const dir = path.join(out, set.name);
-  await mkdir(dir, { recursive: true });
   const [rw, rh] = set.render;
   const page = await browser.newPage({ viewport: { width: rw, height: rh }, reducedMotion: "reduce" });
   await page.goto(`${base}/prototype/capture?quality=high`);
@@ -56,19 +66,26 @@ for (const set of SETS) {
   await page.waitForFunction(() => window.__ready === true && typeof window.__frame === "function", null, {
     timeout: 120_000,
   });
-  // From the hero, through the window, to the reading corner (the middle of the About hold).
-  const end = await page.evaluate(() => window.__stations.about);
-  for (let i = 0; i < FRAMES; i++) {
-    const t = (end * i) / (FRAMES - 1);
-    await page.evaluate((v) => window.__frame(v), t);
-    const png = (await page.screenshot({ type: "png" })).toString("base64");
-    const webp = await page.evaluate(toWebp(png, set.width, set.height, QUALITY));
-    await writeFile(path.join(dir, `${String(i + 1).padStart(4, "0")}.webp`), Buffer.from(webp, "base64"));
+  const at = await page.evaluate(() => window.__stations);
+
+  for (const f of flights) {
+    const dir = path.join(root, f.name, set.name);
+    await rm(dir, { recursive: true, force: true });
+    await mkdir(dir, { recursive: true });
+    const a = at[f.from];
+    const b = at[f.to];
+    for (let i = 0; i < f.frames; i++) {
+      const t = f.frames === 1 ? a : a + ((b - a) * i) / (f.frames - 1);
+      await page.evaluate((v) => window.__frame(v), t);
+      const png = (await page.screenshot({ type: "png" })).toString("base64");
+      const webp = await page.evaluate(toWebp(png, set.width, set.height, QUALITY));
+      await writeFile(path.join(dir, `${String(i + 1).padStart(4, "0")}.webp`), Buffer.from(webp, "base64"));
+    }
+    manifest[f.name] = { from: f.from, to: f.to, frames: f.frames };
+    console.log(`${f.name}/${set.name}: ${f.frames} frames`);
   }
-  manifest.sets[set.name] = { width: set.width, height: set.height };
-  console.log(`${set.name}: ${FRAMES} frames`);
   await page.close();
 }
 
-await writeFile(path.join(out, "manifest.json"), JSON.stringify(manifest, null, 2));
+await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
 await browser.close();

@@ -1,0 +1,27 @@
+{
+  "arrive": {
+    "from": "hero",
+    "to": "about",
+    "frames": 120
+  },
+  "toolbox": {
+    "from": "about",
+    "to": "skills",
+    "frames": 96
+  },
+  "shelves": {
+    "from": "experience",
+    "to": "experience",
+    "frames": 1
+  },
+  "desk": {
+    "from": "experience",
+    "to": "work",
+    "frames": 96
+  },
+  "outro": {
+    "from": "cases",
+    "to": "contact",
+    "frames": 96
+  }
+}

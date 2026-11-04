@@ -8,20 +8,80 @@ import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { content } from "@/lib/content";
 import { prefersReducedMotion } from "@/lib/quality";
-import { Sequence } from "./Sequence";
+import { type Beat, frameSrc, Sequence } from "./Sequence";
+import { Timeline } from "./Timeline";
 import s from "./prototype.module.css";
 
 gsap.registerPlugin(ScrollTrigger, SplitText);
 
+const CHAPTERS = [
+  { id: "about", label: "About" },
+  { id: "toolbox", label: "Toolbox" },
+  { id: "experience", label: "Experience" },
+  { id: "work", label: "Work" },
+  { id: "contact", label: "Contact" },
+];
+const chapterLabel = (id: string) => {
+  const i = CHAPTERS.findIndex((c) => c.id === id);
+  return `Chapter ${String(i + 1).padStart(2, "0")} · ${CHAPTERS[i].label}`;
+};
+
 /** The three statements that land over the flight into the loft. */
-const BEATS = [
-  { k: "01", text: "I care about the details you feel before you notice them." },
-  { k: "02", text: "Design systems, React and Next.js apps, motion and real-time 3D." },
-  { k: "03", text: "Fuzzy ideas in. Shipped, measurable product out." },
+const ABOUT: Beat[] = [
+  { k: "01", title: "I care about the details you feel before you notice them." },
+  { k: "02", title: "Design systems, React and Next.js apps, motion and real-time 3D." },
+  { k: "03", title: "Fuzzy ideas in. Shipped, measurable product out." },
+];
+
+/** One statement per group of the stack, landing as the camera reaches the pegboard. */
+const TOOLBOX: Beat[] = content.stack.map((g, i) => ({
+  k: String(i + 1).padStart(2, "0"),
+  title: g.group,
+  body: (
+    <ul className={s.stackList}>
+      {g.items.map((item) => (
+        <li key={item}>{item}</li>
+      ))}
+    </ul>
+  ),
+}));
+
+const WORK: Beat[] = [
+  {
+    k: "04",
+    title: "Selected work",
+    body: <p className={s.beatLead}>From this site to dashboards, storefronts and design systems.</p>,
+  },
+];
+
+const CONTACT: Beat[] = [
+  {
+    k: "05",
+    title: "Let’s build something.",
+    body: (
+      <div className={s.contactBody}>
+        <a href={`mailto:${content.email}`} className={s.mail}>
+          {content.email} ↗
+        </a>
+        <ul className={s.socials}>
+          {content.contacts
+            .filter((c) => c.url.startsWith("http"))
+            .map((c) => (
+              <li key={c.label}>
+                <a href={c.url} target="_blank" rel="noreferrer">
+                  {c.label}
+                </a>
+              </li>
+            ))}
+        </ul>
+      </div>
+    ),
+  },
 ];
 
 export default function Prototype() {
   const root = useRef<HTMLDivElement>(null);
+  const counter = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
     const reduced = prefersReducedMotion();
@@ -34,6 +94,26 @@ export default function Prototype() {
     }
 
     const ctx = gsap.context(() => {
+      // The counter in the bar follows whichever chapter fills the middle of the screen.
+      CHAPTERS.forEach((c, i) => {
+        ScrollTrigger.create({
+          trigger: `#${c.id}`,
+          start: "top 50%",
+          end: "bottom 50%",
+          onToggle: (st) => {
+            const el = counter.current;
+            if (!el) return;
+            if (st.isActive) {
+              el.textContent = `${String(i + 1).padStart(2, "0")} / ${String(CHAPTERS.length).padStart(2, "0")} · ${c.label}`;
+              el.dataset.on = "";
+              if (!reduced) gsap.fromTo(el, { yPercent: 60, opacity: 0 }, { yPercent: 0, opacity: 1, duration: 0.5, ease: "expo.out" });
+            } else if (i === 0 && st.direction < 0) {
+              delete el.dataset.on;
+            }
+          },
+        });
+      });
+
       if (reduced) return;
 
       // Hero: the name rises letter by letter, then the rest follows.
@@ -52,7 +132,7 @@ export default function Prototype() {
         scrollTrigger: { trigger: `.${s.hero}`, start: "top top", end: "bottom top", scrub: true },
       });
 
-      // Every big heading is wiped in word by word as it enters.
+      // Big headings are wiped in word by word as they enter.
       gsap.utils.toArray<HTMLElement>(`.${s.reveal}`).forEach((el) => {
         const split = SplitText.create(el, { type: "words", mask: "words" });
         gsap.from(split.words, {
@@ -73,6 +153,9 @@ export default function Prototype() {
       });
     }, root);
 
+    // the display fonts change heading sizes, so measure the pins again once they arrive
+    document.fonts.ready.then(() => ScrollTrigger.refresh());
+
     return () => {
       ctx.revert();
       if (lenis) {
@@ -88,10 +171,13 @@ export default function Prototype() {
         <Link href="/prototype" className={s.logo}>
           {content.name}
         </Link>
-        <nav className={s.nav} aria-label="Prototype">
-          <a href="#chapter">About</a>
-          <a href="#work">Work</a>
-          <a href="#contact">Contact</a>
+        <p ref={counter} className={s.counter} aria-hidden />
+        <nav className={s.nav} aria-label="Chapters">
+          {CHAPTERS.map((c) => (
+            <a key={c.id} href={`#${c.id}`}>
+              {c.label}
+            </a>
+          ))}
           <Link href="/" className={s.navCta}>
             Enter 3D ↗
           </Link>
@@ -101,7 +187,7 @@ export default function Prototype() {
       <main>
         {/* ── Hero ─────────────────────────────────────── */}
         <section className={s.hero} aria-labelledby="hero-title">
-          <div className={s.heroBg} aria-hidden />
+          <div className={s.heroBg} style={{ backgroundImage: `url(${frameSrc("arrive", "wide", 0)})` }} aria-hidden />
           <div className={s.heroInner}>
             <p className={s.eyebrow}>
               <span className={s.dot} aria-hidden /> {content.availability}
@@ -117,71 +203,70 @@ export default function Prototype() {
           </div>
         </section>
 
-        {/* ── Chapter 01: the flight into the loft ─────── */}
-        <Sequence id="chapter" beats={BEATS} label="Chapter 01 · About" />
+        <Sequence id="about" flight="arrive" frames={120} beats={ABOUT} label={chapterLabel("about")} />
+        <Sequence id="toolbox" flight="toolbox" frames={96} beats={TOOLBOX} screens={5} label={chapterLabel("toolbox")} />
+        <Timeline id="experience" label={chapterLabel("experience")} />
 
-        {/* ── Work ─────────────────────────────────────── */}
-        <section id="work" className={s.work} aria-labelledby="work-title">
-          <p className={s.kicker}>Chapter 02</p>
-          <h2 id="work-title" className={`${s.big} ${s.reveal}`}>
-            Selected work
-          </h2>
-          <ol className={s.rows}>
-            {content.projects.map((p, i) => (
-              <li key={p.slug} className={s.row}>
-                <Link href={p.url} className={s.rowLink}>
-                  <div
-                    className={s.art}
-                    style={{ background: `radial-gradient(120% 100% at 20% 10%, ${p.colors[0]}, ${p.colors[1]})` }}
-                    aria-hidden
-                  >
-                    <span className={s.artIndex}>{String(i + 1).padStart(2, "0")}</span>
-                  </div>
-                  <div className={s.rowBody}>
-                    <h3 className={s.rowTitle}>
-                      {p.title}
-                      {p.sample ? <span className={s.sample}>Sample</span> : null}
-                    </h3>
-                    <div className={s.rowMeta}>
-                      <p>
-                        {p.kind} · {p.year}
-                      </p>
-                      <p className={s.rowDesc}>{p.description}</p>
-                      <ul className={s.tags} aria-label="Stack">
-                        {p.stack.map((t) => (
-                          <li key={t}>{t}</li>
-                        ))}
-                      </ul>
+        {/* ── Work: the camera crosses to the desk, then the projects ── */}
+        <div id="work">
+          <Sequence id="work-intro" flight="desk" frames={96} beats={WORK} screens={2.5} label={chapterLabel("work")} />
+          <section className={s.work} aria-label="Projects">
+            <ol className={s.rows}>
+              {content.projects.map((p, i) => (
+                <li key={p.slug} className={s.row}>
+                  <Link href={p.url} className={s.rowLink}>
+                    <div
+                      className={s.art}
+                      style={{ background: `radial-gradient(120% 100% at 20% 10%, ${p.colors[0]}, ${p.colors[1]})` }}
+                      aria-hidden
+                    >
+                      <span className={s.artIndex}>{String(i + 1).padStart(2, "0")}</span>
                     </div>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ol>
-        </section>
-
-        {/* ── Contact ──────────────────────────────────── */}
-        <section id="contact" className={s.contact} aria-labelledby="contact-title">
-          <p className={s.kicker}>Chapter 03</p>
-          <h2 id="contact-title" className={`${s.huge} ${s.reveal}`}>
-            Let&apos;s build something.
-          </h2>
-          <a href={`mailto:${content.email}`} className={s.mail}>
-            {content.email} ↗
-          </a>
-          <ul className={s.socials}>
-            {content.contacts
-              .filter((c) => c.url.startsWith("http"))
-              .map((c) => (
-                <li key={c.label}>
-                  <a href={c.url} target="_blank" rel="noreferrer">
-                    {c.label}
-                  </a>
+                    <div className={s.rowBody}>
+                      <h3 className={s.rowTitle}>
+                        {p.title}
+                        {p.sample ? <span className={s.sample}>Sample</span> : null}
+                      </h3>
+                      <div className={s.rowMeta}>
+                        <p>
+                          {p.kind} · {p.year}
+                        </p>
+                        <p className={s.rowDesc}>{p.description}</p>
+                        <ul className={s.tags} aria-label="Stack">
+                          {p.stack.map((t) => (
+                            <li key={t}>{t}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </Link>
                 </li>
               ))}
-          </ul>
-        </section>
+            </ol>
+          </section>
+        </div>
+
+        {/* ── Contact: out through the balcony door ────── */}
+        <Sequence
+          id="contact"
+          flight="outro"
+          frames={96}
+          beats={CONTACT}
+          screens={3}
+          align="center"
+          label={chapterLabel("contact")}
+        />
       </main>
+
+      <footer className={s.footer}>
+        <p>
+          © {content.name} · Built with Next.js, React Three Fiber &amp; Blender
+        </p>
+        <nav aria-label="Other views">
+          <Link href="/classic">Classic view</Link>
+          <Link href="/colophon">How it&apos;s built</Link>
+        </nav>
+      </footer>
     </div>
   );
 }
