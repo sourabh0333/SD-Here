@@ -1,88 +1,62 @@
-import { T } from "./timeline";
+import { STATIONS, STATION_AT } from "./loft";
 
-/** Human-readable chapter + a short excerpt of the code that drives it (shown in the inspector). */
-export const CHAPTERS: { from: number; name: string; file: string; code: string }[] = [
-  {
-    from: 0,
-    name: "Hero · Riverside",
-    file: "components/three/Characters.tsx",
-    code: `<Human pose="lean" position={HERO_SPOT} />
-// poses are limb directions, aimed with quaternions
-aim(bones.RightArm, bones.RightForeArm, [0.62, 0.42, 0.12])`,
+/** What the inspector shows for each station: a label, the file and an excerpt of the code behind it. */
+const SNIPPETS: Record<string, { file: string; code: string }> = {
+  hero: {
+    file: "scripts/blender/loft.py",
+    code: `# the whole loft is modelled in Python
+span("wall_left", X0 - T, X0, Y0, Y1, 0, H, brick_mat())
+bpy.ops.object.bake(type="COMBINED")  # Cycles lightmaps`,
   },
-  {
-    from: T.welcome[0],
-    name: "Welcome · River flight",
-    file: "components/three/Nature.tsx",
-    code: `const water = new Water(plane, {
-  waterNormals, sunDirection,
-  distortionScale: 2.6,
-})
-useFrame((_, dt) => (u.time.value += dt * 0.55))`,
+  about: {
+    file: "components/loft/LoftScene.tsx",
+    code: `// lighting comes from Blender, not from WebGL
+new THREE.MeshBasicMaterial({ map: bakedAtlas, toneMapped: false })`,
   },
-  {
-    from: T.aboutLetters[0],
-    name: "<About /> · Letters",
-    file: "components/three/Letters.tsx",
-    code: `<Text3D font={BLOCK_FONT} size={4.2} height={1.4} bevelEnabled>
-  {"<About />"}
-</Text3D>`,
+  skills: {
+    file: "scripts/blender/loft.py",
+    code: `for k, s in enumerate(SKILLS):
+    soft_box(f"tag{k}", (0.6, 0.02, 0.2), pos, color)
+    text(f"tagtext{k}", s, pos, 0.085, ink)`,
   },
-  {
-    from: T.about[0],
-    name: "About · Materialise",
-    file: "components/three/Human.tsx",
-    code: `// injected into the standard material shader
-if (vRevealY > uRevealY) discard;
-totalEmissiveRadiance += rainbow * edge * 2.5;`,
+  experience: {
+    file: "lib/loft.ts",
+    code: `const k = ease(clamp((t - seg.from) / (seg.to - seg.from)))
+seg.pos.getPointAt(k, camera.position)
+seg.look.getPointAt(k, target)`,
   },
-  {
-    from: T.ride[0],
-    name: "Ride · Old town",
-    file: "lib/world.ts",
-    code: `const { pos, tan } = rideAt(scroll.current)
-camera.position.copy(pos).addScaledVector(tan, -7.5)
-camera.lookAt(pos.addScaledVector(tan, 12))`,
+  work: {
+    file: "components/loft/screens.ts",
+    code: `drawProjectScreen(canvas, project, index)
+texture.needsUpdate = true  // live monitors`,
   },
-  {
-    from: T.statue[0],
-    name: "Statue · Obelisk",
-    file: "components/three/RideZone.tsx",
-    code: `<Human pose="raise" gold glyph="</>" scale={2.2} />`,
+  cases: {
+    file: "components/loft/LoftScene.tsx",
+    code: `<primitive object={poster}
+  onClick={() => router.push(project.url)} />`,
   },
-  {
-    from: T.work[0],
-    name: "<Work /> · Above the clouds",
-    file: "components/three/SkyZone.tsx",
-    code: `<Html transform distanceFactor={10}>
-  <BrowserWindow url={project.url}>…</BrowserWindow>
-</Html>`,
+  contact: {
+    file: "components/loft/NightCity.tsx",
+    code: `float lit = step(0.62, hash(cell + seed));
+col = mix(base, warmWindow, window * lit);`,
   },
-  {
-    from: T.skydive[0],
-    name: "Skydive",
-    file: "components/three/Characters.tsx",
-    code: `diver.position.copy(camera.position)
-  .addScaledVector(lookDir, 8.5)
-<Human pose="fall" backpack />`,
-  },
-  {
-    from: T.contact[0],
-    name: "getInTouch() · Plaza",
-    file: "components/three/ContactZone.tsx",
-    code: `onClick={() => window.open(contact.url)}
-<meshStandardMaterial metalness={1} roughness={0.12} />`,
-  },
-  {
-    from: T.room[0],
-    name: "Finale · Workspace",
-    file: "components/three/Room.tsx",
-    code: `console.log("Thank you for visiting!")`,
-  },
-];
+};
+
+export const CHAPTERS = STATIONS.map((s) => ({
+  from: STATION_AT[s.id],
+  name: s.label,
+  ...SNIPPETS[s.id],
+}));
 
 export function chapterAt(t: number) {
-  let c = CHAPTERS[0];
-  for (const ch of CHAPTERS) if (t >= ch.from) c = ch;
-  return c;
+  let best = CHAPTERS[0];
+  let d = Infinity;
+  for (const c of CHAPTERS) {
+    const dist = Math.abs(t - c.from);
+    if (dist < d) {
+      d = dist;
+      best = c;
+    }
+  }
+  return best;
 }

@@ -7,10 +7,11 @@ import { hasWebGL } from "@/lib/quality";
 import { startScroll } from "@/lib/scroll";
 import { setSound } from "@/lib/sound";
 import { CommandPalette, Cursor, InspectorPanel, useConsoleGreeting, useShortcuts } from "./ui/DevTools";
-import { ContactForm, Controls, HeroTitle, Letterbox, Loader, Outro, ScrollHint, Skills } from "./ui/Overlay";
+import { ProgressLine, StationNav, StationPanels } from "./ui/LoftOverlay";
+import { Controls, Loader } from "./ui/Overlay";
 
 // WebGL only runs in the browser.
-const Experience = dynamic(() => import("./three/Experience"), { ssr: false });
+const Experience = dynamic(() => import("./loft/LoftExperience"), { ssr: false });
 
 export default function Portfolio() {
   const [ready, setReady] = useState(false);
@@ -61,12 +62,9 @@ export default function Portfolio() {
       <div className="stage">
         <Experience onReady={onReady} />
       </div>
-      <Letterbox />
-      <HeroTitle />
-      <Skills />
-      <ScrollHint />
-      <ContactForm />
-      <Outro />
+      <StationPanels />
+      <StationNav />
+      <ProgressLine />
       <Controls onPalette={openPalette} />
       <InspectorPanel />
       <CommandPalette open={palette} onClose={closePalette} />

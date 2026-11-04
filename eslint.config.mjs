@@ -8,7 +8,7 @@ const eslintConfig = defineConfig([
   {
     // Three.js scene code mutates GPU objects (materials, uniforms, meshes) inside
     // the render loop by design; the React Compiler purity rules don't apply there.
-    files: ["components/three/**/*.{ts,tsx}"],
+    files: ["components/loft/**/*.{ts,tsx}"],
     rules: {
       "react-hooks/immutability": "off",
       "react-hooks/purity": "off",
