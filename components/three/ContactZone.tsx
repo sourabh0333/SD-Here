@@ -312,7 +312,7 @@ export function ContactZone() {
       />
 
       <AtomSculpture position={[P.x, 0, P.z - 20]} />
-      <Letters text="GET IN TOUCH" size={3.6} position={[P.x, 0, P.z - 8]} color="#ec8fb2" />
+      <Letters text="getInTouch()" size={3.6} position={[P.x, 0, P.z - 8]} color="#ec8fb2" />
 
       {content.contacts.map((c, i) => (
         <ContactIcon key={c.label} glyph={c.glyph} label={c.label} url={c.url} position={icons[i % icons.length]} />

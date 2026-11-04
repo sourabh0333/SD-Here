@@ -10,7 +10,7 @@ const r = (n) => Math.round(n * scale);
 const glyphs = {};
 
 const chars =
-  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@&?.,'-:# ";
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@&?.,'-:# <>/(){}[]=;_+*\"";
 
 for (const ch of chars) {
   const glyph = font.charToGlyph(ch);

@@ -29,24 +29,45 @@ function ProjectCards() {
           zIndexRange={[20, 0]}
         >
           <div className="card-wrap" style={{ opacity: 0 }}>
-            <a className="card" href={p.url} target="_blank" rel="noreferrer">
-              <div
-                className="card-face"
-                style={{
-                  background: `radial-gradient(120% 80% at 30% 20%, ${p.colors[0]}, ${p.colors[1]})`,
-                }}
-              >
-                <span className="card-year">{p.year}</span>
-                <span className="card-title">{p.title}</span>
-                <span className="card-kind">{p.kind}</span>
-              </div>
-              <div className="card-back">
-                <span className="card-title small">{p.title}</span>
-                <p>{p.description}</p>
-                <span className="card-link">View project ↗</span>
+            <a className="card" href={p.url} aria-label={`${p.title} — read the case study`}>
+              <div className="browser">
+                <div className="browser-bar">
+                  <span className="browser-dots" aria-hidden>
+                    <i />
+                    <i />
+                    <i />
+                  </span>
+                  <span className="browser-url">{p.title.toLowerCase().replace(/\s+/g, "")}.app</span>
+                </div>
+                <div
+                  className="browser-view"
+                  style={{ background: `radial-gradient(120% 80% at 30% 15%, ${p.colors[0]}, ${p.colors[1]})` }}
+                >
+                  <span className="card-year">{p.year}</span>
+                  <span className="card-title">{p.title}</span>
+                  <span className="card-kind">{p.kind}</span>
+                  <div className="browser-mock" aria-hidden>
+                    <b />
+                    <span />
+                    <span className="short" />
+                    <div>
+                      <i />
+                      <i />
+                      <i />
+                    </div>
+                  </div>
+                  <div className="browser-hover">
+                    <p>{p.description}</p>
+                    <ul>
+                      {p.stack.slice(0, 3).map((t) => (
+                        <li key={t}>{t}</li>
+                      ))}
+                    </ul>
+                    <span className="card-link">Read case study →</span>
+                  </div>
+                </div>
               </div>
             </a>
-            <div className="card-icon">↗</div>
           </div>
         </Html>
       ))}

@@ -5,6 +5,7 @@ import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { Water } from "three/examples/jsm/objects/Water.js";
+import { getTier } from "@/lib/quality";
 import { scroll } from "@/lib/scroll";
 
 /** Shared sun direction (updated by the atmosphere every frame). */
@@ -24,8 +25,8 @@ export function RiverWater({
   const water = useMemo(() => {
     normals.wrapS = normals.wrapT = THREE.RepeatWrapping;
     const w = new Water(new THREE.PlaneGeometry(width, length), {
-      textureWidth: 512,
-      textureHeight: 512,
+      textureWidth: getTier() === "high" ? 512 : 256,
+      textureHeight: getTier() === "high" ? 512 : 256,
       waterNormals: normals,
       sunDirection: sunDirection.clone(),
       sunColor: 0xffd7b0,

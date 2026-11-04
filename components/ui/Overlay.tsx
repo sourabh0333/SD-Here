@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useProgress } from "@react-three/drei";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { content } from "@/lib/content";
+import { inspector, subscribeInspector, toggleInspector } from "@/lib/inspector";
 import { onProgress, scrollToProgress } from "@/lib/scroll";
+import { isSoundOn, subscribeSound, toggleSound } from "@/lib/sound";
 import { MENU, T, range, smooth, window01 } from "@/lib/timeline";
-import { Ambient } from "./ambient";
 
 /** Subscribe a DOM ref to scroll progress without re-rendering React. */
 function useProgressEffect(fn: (p: number) => void) {
@@ -175,19 +177,11 @@ export function Outro() {
   );
 }
 
-// ── Menu + sound buttons (top right) ──────────────────────────────────────
-export function Controls() {
+// ── Menu, inspector, palette and sound buttons (top right) ───────────────
+export function Controls({ onPalette }: { onPalette: () => void }) {
   const [open, setOpen] = useState(false);
-  const [sound, setSound] = useState(false);
-  const ambient = useRef<Ambient | null>(null);
-
-  const toggleSound = () => {
-    if (!ambient.current) ambient.current = new Ambient();
-    const next = !sound;
-    setSound(next);
-    if (next) ambient.current.start();
-    else ambient.current.stop();
-  };
+  const sound = useSound();
+  const inspecting = useInspectorOn();
 
   return (
     <>
@@ -208,6 +202,19 @@ export function Controls() {
           </span>
           <small>sound</small>
         </button>
+        <button
+          className={`ctrl ctrl-code ${inspecting ? "active" : ""}`}
+          onClick={toggleInspector}
+          aria-label="Toggle inspector (I)"
+          aria-pressed={inspecting}
+        >
+          <span aria-hidden>&lt;/&gt;</span>
+          <small>inspect</small>
+        </button>
+        <button className="ctrl ctrl-code" onClick={onPalette} aria-label="Open command palette (Ctrl K)">
+          <span aria-hidden>⌘K</span>
+          <small>search</small>
+        </button>
       </div>
       <nav className={`menu ${open ? "open" : ""}`} aria-hidden={!open}>
         <ol>
@@ -225,36 +232,87 @@ export function Controls() {
               </button>
             </li>
           ))}
+          <li style={{ transitionDelay: open ? `${80 + MENU.length * 60}ms` : "0ms" }}>
+            <a href="/classic" tabIndex={open ? 0 : -1} className="menu-classic">
+              Classic view ↗
+            </a>
+          </li>
         </ol>
       </nav>
     </>
   );
 }
 
-// ── Loader ────────────────────────────────────────────────────────────────
-export function Loader({ ready }: { ready: boolean }) {
-  const [pct, setPct] = useState(0);
+// ── Loader: real asset progress, then a deliberate "enter" choice ─────────
+export function Loader({ ready, onEnter }: { ready: boolean; onEnter: (withSound: boolean) => void }) {
+  const { progress, item } = useProgress();
   const [gone, setGone] = useState(false);
-  useEffect(() => {
-    const id = setInterval(() => {
-      setPct((p) => (ready ? Math.min(100, p + 9) : Math.min(90, p + Math.random() * 6)));
-    }, 60);
-    return () => clearInterval(id);
-  }, [ready]);
-  useEffect(() => {
-    if (pct >= 100) {
-      const id = setTimeout(() => setGone(true), 700);
-      return () => clearTimeout(id);
-    }
-  }, [pct]);
+  const [leaving, setLeaving] = useState(false);
+  const reduced = useReducedMotion();
+  const done = ready && progress >= 100;
+
+  const enter = (withSound: boolean) => {
+    setLeaving(true);
+    onEnter(withSound);
+    setTimeout(() => setGone(true), 800);
+  };
+
   if (gone) return null;
   return (
-    <div className={`loader ${pct >= 100 ? "done" : ""}`}>
+    <div className={`loader ${leaving ? "done" : ""}`} role="dialog" aria-modal="true" aria-label="Loading">
+      <p className="loader-tag">&lt;Portfolio /&gt;</p>
       <div className="loader-name">{content.name}</div>
-      <div className="loader-bar">
-        <span style={{ width: `${pct}%` }} />
+      <p className="loader-role">{content.role}</p>
+      <div className="loader-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)}>
+        <span style={{ width: `${done ? 100 : Math.min(progress, 99)}%` }} />
       </div>
-      <div className="loader-pct">{Math.floor(pct)}%</div>
+      <div className="loader-pct">
+        {done ? "ready" : `${Math.floor(progress)}% · ${item ? item.split("/").pop() : "warming up shaders"}`}
+      </div>
+      <div className={`loader-actions ${done ? "show" : ""}`}>
+        <button className="loader-btn primary" onClick={() => enter(true)} disabled={!done}>
+          Enter with sound
+        </button>
+        <button className="loader-btn" onClick={() => enter(false)} disabled={!done}>
+          Enter muted
+        </button>
+        <a className="loader-btn ghost" href="/classic">
+          Classic view
+        </a>
+      </div>
+      {reduced ? (
+        <p className="loader-note">You prefer reduced motion — the classic view might be more comfortable.</p>
+      ) : (
+        <p className="loader-note">Scroll to travel · press I to inspect · ⌘K to search</p>
+      )}
     </div>
+  );
+}
+
+function useReducedMotion() {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    const m = matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setReduced(m.matches);
+    update();
+    m.addEventListener("change", update);
+    return () => m.removeEventListener("change", update);
+  }, []);
+  return reduced;
+}
+
+export function useSound() {
+  return useSyncExternalStore(
+    (cb) => subscribeSound(cb),
+    isSoundOn,
+    () => false,
+  );
+}
+
+export function useInspectorOn() {
+  return useSyncExternalStore(
+    subscribeInspector,
+    () => inspector.on,
+    () => false,
   );
 }

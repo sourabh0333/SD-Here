@@ -15,6 +15,139 @@ const F = ROOM.floor;
 const H = ROOM.height;
 const D = ROOM.depth;
 
+// ── Code texture for the monitors ─────────────────────────────────────────
+const CODE: [string, string][][] = [
+  [["const ", "#c4a7e7"], ["visitor", "#e8e8f0"], [" = ", "#9aa"], ["useYou", "#7cf3ff"], ["();", "#e8e8f0"]],
+  [],
+  [["export default function ", "#c4a7e7"], ["Finale", "#7cf3ff"], ["() {", "#e8e8f0"]],
+  [["  return ", "#c4a7e7"], ["(", "#e8e8f0"]],
+  [["    <", "#f2a7b5"], ["Room ", "#f2a7b5"], ["cozy", "#ffd166"], [">", "#f2a7b5"]],
+  [["      <", "#f2a7b5"], ["Text", "#f2a7b5"], [">", "#f2a7b5"], ["Thank you", "#f6c177"], ["</", "#f2a7b5"], ["Text", "#f2a7b5"], [">", "#f2a7b5"]],
+  [["    </", "#f2a7b5"], ["Room", "#f2a7b5"], [">", "#f2a7b5"]],
+  [["  );", "#e8e8f0"]],
+  [["}", "#e8e8f0"]],
+  [],
+  [["console", "#e8e8f0"], [".", "#9aa"], ["log", "#7cf3ff"], ["(", "#e8e8f0"], ['"Thank you for visiting!"', "#f6c177"], [");", "#e8e8f0"]],
+  [["// → let's build something together ✦", "#6b8a99"]],
+];
+
+function codeTexture(variant: number) {
+  const c = document.createElement("canvas");
+  c.width = 1024;
+  c.height = 576;
+  const g = c.getContext("2d")!;
+  g.fillStyle = "#14121c";
+  g.fillRect(0, 0, c.width, c.height);
+  // title bar + tabs
+  g.fillStyle = "#1d1a28";
+  g.fillRect(0, 0, c.width, 46);
+  ["#ff6b6b", "#ffd166", "#6ee7a8"].forEach((col, i) => {
+    g.fillStyle = col;
+    g.beginPath();
+    g.arc(26 + i * 22, 23, 7, 0, Math.PI * 2);
+    g.fill();
+  });
+  g.font = "20px monospace";
+  g.fillStyle = "#e8e8f0";
+  g.fillText(variant ? "Finale.tsx" : "terminal — zsh", 110, 30);
+  g.font = "26px monospace";
+  if (variant) {
+    CODE.forEach((line, i) => {
+      g.fillStyle = "#4b4860";
+      g.fillText(String(i + 1).padStart(2, " "), 22, 96 + i * 38);
+      let x = 80;
+      for (const [txt, col] of line) {
+        g.fillStyle = col;
+        g.fillText(txt, x, 96 + i * 38);
+        x += g.measureText(txt).width;
+      }
+    });
+  } else {
+    const lines: [string, string][] = [
+      ["$ pnpm build", "#e8e8f0"],
+      ["✓ Compiled successfully", "#6ee7a8"],
+      ["✓ Generated static pages (12/12)", "#6ee7a8"],
+      ["", ""],
+      ["$ lighthouse sd-here --view", "#e8e8f0"],
+      ["  Performance     ●", "#6ee7a8"],
+      ["  Accessibility   ●", "#6ee7a8"],
+      ["  Best Practices  ●", "#6ee7a8"],
+      ["  SEO             ●", "#6ee7a8"],
+      ["", ""],
+      ["$ echo $THANK_YOU", "#e8e8f0"],
+      ["Thanks for scrolling all the way ♥", "#f2a7b5"],
+    ];
+    lines.forEach(([txt, col], i) => {
+      g.fillStyle = col;
+      g.fillText(txt, 28, 96 + i * 38);
+    });
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  return t;
+}
+
+/** Two monitors with code, keyboard, mug and a plant. */
+function Workspace({ x, y, z }: { x: number; y: number; z: number }) {
+  const [left, right] = useMemo(() => [codeTexture(0), codeTexture(1)], []);
+  return (
+    <group position={[x, y, z]}>
+      {[
+        { tex: left, px: -1.05, ry: 0.18 },
+        { tex: right, px: 1.05, ry: -0.18 },
+      ].map(({ tex, px, ry }) => (
+        <group key={px} position={[px, 0.75, -0.25]} rotation={[0, ry, 0]}>
+          <mesh castShadow>
+            <boxGeometry args={[1.9, 1.12, 0.06]} />
+            <meshStandardMaterial color="#1b1b20" roughness={0.4} metalness={0.4} envMapIntensity={0.2} />
+          </mesh>
+          <mesh position={[0, 0, 0.032]}>
+            <planeGeometry args={[1.8, 1.02]} />
+            <meshStandardMaterial map={tex} emissiveMap={tex} emissive="#ffffff" emissiveIntensity={0.85} roughness={0.3} />
+          </mesh>
+          <mesh position={[0, -0.7, -0.05]}>
+            <boxGeometry args={[0.08, 0.32, 0.08]} />
+            <meshStandardMaterial color="#2a2a30" metalness={0.6} roughness={0.3} />
+          </mesh>
+          <mesh position={[0, -0.86, -0.05]}>
+            <boxGeometry args={[0.5, 0.03, 0.3]} />
+            <meshStandardMaterial color="#2a2a30" metalness={0.6} roughness={0.3} />
+          </mesh>
+        </group>
+      ))}
+      {/* keyboard + mouse */}
+      <mesh position={[0, 0.03, 0.35]} castShadow>
+        <boxGeometry args={[1.25, 0.04, 0.4]} />
+        <meshStandardMaterial color="#e9e6ef" roughness={0.6} envMapIntensity={0.2} />
+      </mesh>
+      <mesh position={[0.9, 0.03, 0.38]} castShadow>
+        <capsuleGeometry args={[0.06, 0.08, 4, 8]} />
+        <meshStandardMaterial color="#e9e6ef" roughness={0.6} envMapIntensity={0.2} />
+      </mesh>
+      {/* mug */}
+      <mesh position={[-1.7, 0.12, 0.3]} castShadow>
+        <cylinderGeometry args={[0.1, 0.09, 0.22, 16]} />
+        <meshStandardMaterial color="#e57c98" roughness={0.5} envMapIntensity={0.2} />
+      </mesh>
+      {/* plant */}
+      <group position={[2, 0, 0.2]}>
+        <mesh position={[0, 0.16, 0]} castShadow>
+          <cylinderGeometry args={[0.16, 0.12, 0.3, 14]} />
+          <meshStandardMaterial color="#d8d3de" roughness={0.7} envMapIntensity={0.2} />
+        </mesh>
+        {Array.from({ length: 7 }).map((_, i) => (
+          <mesh key={i} position={[Math.cos(i) * 0.08, 0.5 + (i % 3) * 0.06, Math.sin(i) * 0.08]} rotation={[Math.cos(i * 2) * 0.6, i, Math.sin(i) * 0.6]}>
+            <coneGeometry args={[0.06, 0.5, 4]} />
+            <meshStandardMaterial color="#6fa36b" roughness={0.8} envMapIntensity={0.2} />
+          </mesh>
+        ))}
+      </group>
+      <pointLight position={[0, 0.9, 0.9]} color="#9fd8ff" intensity={2.5} distance={4} decay={2} />
+    </group>
+  );
+}
+
 /**
  * The finale: a townhouse on the plaza whose window the camera flies through,
  * into a cosy room that says "Thank You For Visiting".
@@ -90,26 +223,23 @@ export function Room() {
         pink.push(fr);
       }
     }
-    // sofa facing the back window
-    const seat = new THREE.BoxGeometry(4.2, 0.5, 1.6);
-    seat.translate(P.x, F + 0.45, zIn - 15);
-    const backrest = new THREE.BoxGeometry(4.2, 1.1, 0.4);
-    backrest.translate(P.x, F + 0.95, zIn - 14.3);
-    const arms = [-1, 1].map((sx) => {
-      const a = new THREE.BoxGeometry(0.4, 0.8, 1.6);
-      a.translate(P.x + sx * 2.1, F + 0.6, zIn - 15);
-      return a;
-    });
-    fabric.push(seat, backrest, ...arms);
-    // coffee table + armchair
-    const table = new THREE.CylinderGeometry(0.7, 0.7, 0.08, 24);
-    table.translate(P.x + 2.6, F + 0.5, zIn - 17.5);
-    const leg = new THREE.CylinderGeometry(0.06, 0.06, 0.5, 8);
-    leg.translate(P.x + 2.6, F + 0.25, zIn - 17.5);
-    wood.push(table, leg);
-    const chair = new THREE.BoxGeometry(1.2, 0.9, 1.2);
-    chair.translate(P.x - 3.6, F + 0.45, zIn - 18.5);
-    pink.push(chair);
+    // developer desk facing the visitor
+    const top = new THREE.BoxGeometry(4.6, 0.12, 1.6);
+    top.translate(P.x, F + 1.1, zIn - 13.5);
+    wood.push(top);
+    for (const sx of [-1, 1]) {
+      const leg = new THREE.BoxGeometry(0.1, 1.05, 1.4);
+      leg.translate(P.x + sx * 2.15, F + 0.53, zIn - 13.5);
+      wood.push(leg);
+    }
+    // office chair behind the desk
+    const seat = new THREE.BoxGeometry(0.9, 0.14, 0.85);
+    seat.translate(P.x, F + 0.72, zIn - 15);
+    const back = new THREE.BoxGeometry(0.9, 1.1, 0.12);
+    back.translate(P.x, F + 1.35, zIn - 15.45);
+    const stem = new THREE.CylinderGeometry(0.05, 0.05, 0.6, 8);
+    stem.translate(P.x, F + 0.38, zIn - 15);
+    fabric.push(seat, back, stem);
     // curtains framing the back window
     for (const sx of [-1, 1]) {
       const c = new THREE.BoxGeometry(1.1, 4.4, 0.15);
@@ -177,6 +307,7 @@ export function Room() {
         <mesh geometry={furniture.pink} castShadow>
           <meshStandardMaterial color="#e57c98" roughness={0.8} envMapIntensity={0.15} />
         </mesh>
+        <Workspace x={P.x} y={F + 1.16} z={zIn - 13.5} />
         {/* pendant lamp */}
         <mesh position={[P.x, F + H - 0.6, zIn - 9]}>
           <cylinderGeometry args={[0.02, 0.02, 1.2, 6]} />
@@ -191,11 +322,8 @@ export function Room() {
       </group>
 
       <group ref={textRef}>
-        <Text font={LIGHT_FONT} fontSize={0.44} letterSpacing={0.1} position={[P.x, F + 5.2, zBack + 0.06]} color="#ffffff" fillOpacity={0}>
-          Thank You
-        </Text>
-        <Text font={LIGHT_FONT} fontSize={0.44} letterSpacing={0.1} position={[P.x, F + 1.42, zBack + 0.06]} color="#ffffff" fillOpacity={0}>
-          For Visiting
+        <Text font={LIGHT_FONT} fontSize={0.4} letterSpacing={0.12} position={[P.x, F + 5.15, zBack + 0.06]} color="#ffffff" fillOpacity={0}>
+          Thank You For Visiting
         </Text>
       </group>
     </group>

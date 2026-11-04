@@ -388,7 +388,7 @@ export function ParisZone() {
       <Kiosk position={[-15.5, 0, -152]} />
 
       <WelcomeText />
-      <Letters text="ABOUT ME" size={4.2} position={[0, 0, -84]} />
+      <Letters text="<About />" size={4.2} position={[0, 0, -84]} />
       <RisingHi />
     </group>
   );

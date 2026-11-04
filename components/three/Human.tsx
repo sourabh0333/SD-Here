@@ -1,6 +1,6 @@
 "use client";
 
-import { useGLTF } from "@react-three/drei";
+import { Center, Text3D, useGLTF } from "@react-three/drei";
 import { useFrame, type ThreeElements } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
@@ -288,24 +288,37 @@ function Helmet({ bone }: { bone: THREE.Bone }) {
   return null;
 }
 
-/** Golden laurel ring held above the head between both hands. */
+/** Golden "</>" trophy held above the head between both hands. */
 function RingProp({ bones }: { bones: Bones }) {
-  const ring = useRef<THREE.Mesh>(null);
+  const ref = useRef<THREE.Group>(null);
   const a = useMemo(() => new THREE.Vector3(), []);
   const b = useMemo(() => new THREE.Vector3(), []);
   useFrame(() => {
-    if (!ring.current) return;
+    if (!ref.current) return;
     bones.LeftHand.getWorldPosition(a);
     bones.RightHand.getWorldPosition(b);
     const mid = a.add(b).multiplyScalar(0.5);
-    ring.current.parent!.worldToLocal(mid);
-    ring.current.position.copy(mid).add(new THREE.Vector3(0, 0.22, 0));
+    ref.current.parent!.worldToLocal(mid);
+    ref.current.position.copy(mid).add(new THREE.Vector3(0, 0.2, 0));
   });
   return (
-    <mesh ref={ring} castShadow>
-      <torusGeometry args={[0.24, 0.055, 12, 36]} />
-      <meshStandardMaterial color="#d9a441" metalness={1} roughness={0.25} />
-    </mesh>
+    <group ref={ref}>
+      <Center>
+        <Text3D
+          font="/fonts/archivo-black.typeface.json"
+          size={0.34}
+          height={0.1}
+          bevelEnabled
+          bevelSize={0.01}
+          bevelThickness={0.015}
+          curveSegments={6}
+          castShadow
+        >
+          {"</>"}
+          <meshStandardMaterial color="#e2ad4c" metalness={1} roughness={0.22} />
+        </Text3D>
+      </Center>
+    </group>
   );
 }
 

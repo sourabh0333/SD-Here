@@ -11,7 +11,9 @@ import { content } from "@/lib/content";
 import { scroll } from "@/lib/scroll";
 import { T, clamp, window01 } from "@/lib/timeline";
 import { ABOUT_SPOT, cameraAt } from "@/lib/world";
+import { getTier } from "@/lib/quality";
 import { Characters } from "./Characters";
+import { InspectorProbe } from "./InspectorProbe";
 import { ContactZone } from "./ContactZone";
 import { sunDirection } from "./Nature";
 import { Ground, ParisZone, Road } from "./ParisZone";
@@ -223,7 +225,7 @@ function Atmosphere() {
         ref={sun}
         castShadow
         intensity={2.4}
-        shadow-mapSize={[2048, 2048]}
+        shadow-mapSize={getTier() === "high" ? [2048, 2048] : [1024, 1024]}
         shadow-bias={-0.0004}
         shadow-normalBias={0.04}
         shadow-camera-left={-55}
@@ -271,7 +273,7 @@ function AboutPanel() {
 }
 
 function Effects() {
-  const [high, setHigh] = useState(true);
+  const [high, setHigh] = useState(() => getTier() === "high");
   return (
     <>
       <PerformanceMonitor onDecline={() => setHigh(false)} />
@@ -279,7 +281,7 @@ function Effects() {
         <Bloom mipmapBlur intensity={high ? 0.4 : 0.25} luminanceThreshold={0.9} luminanceSmoothing={0.2} />
         <Vignette offset={0.28} darkness={0.42} />
         <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
-        <SMAA />
+        {high ? <SMAA /> : <></>}
       </EffectComposer>
     </>
   );
@@ -289,7 +291,7 @@ export default function Experience({ onReady }: { onReady?: () => void }) {
   return (
     <Canvas
       shadows
-      dpr={[1, 1.75]}
+      dpr={getTier() === "high" ? [1, 1.75] : [1, 1.25]}
       gl={{ antialias: false, powerPreference: "high-performance", stencil: false }}
       camera={{ fov: 50, near: 0.2, far: 5000, position: [19, 2.3, 23] }}
       onCreated={({ gl, scene }) => {
@@ -321,6 +323,7 @@ export default function Experience({ onReady }: { onReady?: () => void }) {
           <ContactZone />
         </Zone>
         <Characters />
+        <InspectorProbe />
         <Effects />
         <ReadySignal onReady={onReady} />
       </Suspense>
