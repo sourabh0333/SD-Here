@@ -72,17 +72,18 @@ export function SkyZone() {
     <group>
       {/* pink sunset sea of clouds under the project cards */}
       <Clouds texture={texture} material={THREE.MeshLambertMaterial} limit={260}>
-        {Array.from({ length: 9 }).map((_, i) => (
+        {Array.from({ length: 14 }).map((_, i) => (
           <Cloud
             key={i}
             seed={i + 1}
             segments={26}
-            bounds={[26, 5, 14]}
-            volume={22}
-            color={i % 2 ? "#f7cfc8" : "#f1bfbd"}
+            bounds={[22, 4, 12]}
+            volume={26}
+            opacity={0.95}
+            color={i % 2 ? "#fff1ee" : "#fbe0dc"}
             fade={60}
             speed={0.08}
-            position={[-80 + i * 20, CARDS.y - 8.5 - (i % 3) * 1.5, CARDS.z + 14 - (i % 2) * 10]}
+            position={[-90 + i * 14, CARDS.y - 6.5 - (i % 3) * 1.2, CARDS.z + 14 - (i % 2) * 8]}
           />
         ))}
         <Cloud seed={30} segments={30} bounds={[60, 8, 20]} volume={30} color="#f3c4c0" position={[0, CARDS.y - 20, CARDS.z + 40]} speed={0.05} />

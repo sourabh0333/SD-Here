@@ -48,9 +48,9 @@ export function HeroTitle() {
 
 // ── Cinematic letterbox bars ──────────────────────────────────────────────
 const BARS: [number, number][] = [
-  [0.065, 0.275],
-  [0.39, 0.69],
-  [0.92, 1.01],
+  [0.058, 0.25],
+  [0.37, 0.668],
+  [0.945, 1.01],
 ];
 
 export function Letterbox() {
@@ -115,11 +115,45 @@ export function ScrollHint() {
   );
 }
 
+// ── Contact form (glass panel during the contact chapter) ────────────────
+export function ContactForm() {
+  const ref = useRef<HTMLFormElement>(null);
+  const email = content.contacts.find((c) => c.url.startsWith("mailto:"))?.url ?? "mailto:";
+  useProgressEffect((p) => {
+    const o = window01(p, 0.905, 0.952, 0.012);
+    if (ref.current) {
+      ref.current.style.opacity = String(o);
+      ref.current.style.transform = `translateY(${(1 - o) * 24}px)`;
+      ref.current.style.pointerEvents = o > 0.5 ? "auto" : "none";
+    }
+  });
+  return (
+    <form
+      ref={ref}
+      className="contact-form"
+      style={{ opacity: 0 }}
+      onSubmit={(e) => {
+        e.preventDefault();
+        const f = new FormData(e.currentTarget);
+        const subject = encodeURIComponent(`Hello from ${f.get("name") || "your website"}`);
+        const body = encodeURIComponent(`${f.get("message") || ""}\n\n— ${f.get("name") || ""} (${f.get("from") || ""})`);
+        window.open(`${email}?subject=${subject}&body=${body}`, "_self");
+      }}
+    >
+      <h3>Say hello</h3>
+      <input name="name" placeholder="Your name" autoComplete="name" />
+      <input name="from" type="email" placeholder="Your email" autoComplete="email" />
+      <textarea name="message" placeholder="Your message" rows={3} />
+      <button type="submit">Send ↗</button>
+    </form>
+  );
+}
+
 // ── Closing footer ────────────────────────────────────────────────────────
 export function Outro() {
   const ref = useRef<HTMLDivElement>(null);
   useProgressEffect((p) => {
-    const o = range(p, 0.965, 0.995);
+    const o = window01(p, 0.952, 0.975, 0.01);
     if (ref.current) {
       ref.current.style.opacity = String(o);
       ref.current.style.pointerEvents = o > 0.5 ? "auto" : "none";

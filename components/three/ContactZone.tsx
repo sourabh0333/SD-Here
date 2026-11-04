@@ -1,6 +1,6 @@
 "use client";
 
-import { Center, Float, Text, Text3D } from "@react-three/drei";
+import { Center, Float, RoundedBox, Text, Text3D } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef, useState } from "react";
 import * as THREE from "three";
@@ -10,6 +10,7 @@ import { PLAZA } from "@/lib/world";
 import { City, type Footprint } from "./City";
 import { Cafe, Trees } from "./Landmarks";
 import { BLOCK_FONT, Letters } from "./Letters";
+import { Room } from "./Room";
 
 const PASTELS = ["#cfd8e6", "#e8e3d6", "#d9e2ef", "#f0ece4", "#c7d1e0", "#e2d6d9", "#d5dcd0"];
 
@@ -127,15 +128,51 @@ function ContactIcon({
   );
 }
 
+function Car({ color }: { color: string }) {
+  return (
+    <group>
+      <RoundedBox args={[1.9, 0.75, 4.3]} radius={0.28} smoothness={4} position={[0, 0.75, 0]} castShadow>
+        <meshPhysicalMaterial color={color} roughness={0.25} metalness={0.4} clearcoat={1} clearcoatRoughness={0.1} />
+      </RoundedBox>
+      <RoundedBox args={[1.65, 0.62, 2.2]} radius={0.22} smoothness={4} position={[0, 1.36, -0.25]} castShadow>
+        <meshPhysicalMaterial color="#1f2733" roughness={0.05} metalness={0.2} clearcoat={1} />
+      </RoundedBox>
+      {[
+        [-0.92, 1.35],
+        [0.92, 1.35],
+        [-0.92, -1.35],
+        [0.92, -1.35],
+      ].map(([x, z]) => (
+        <group key={`${x}${z}`} position={[x, 0.38, z]} rotation={[0, 0, Math.PI / 2]}>
+          <mesh>
+            <cylinderGeometry args={[0.38, 0.38, 0.26, 18]} />
+            <meshStandardMaterial color="#1a1a1c" roughness={0.9} />
+          </mesh>
+          <mesh position={[0, x > 0 ? 0.14 : -0.14, 0]}>
+            <cylinderGeometry args={[0.22, 0.22, 0.02, 14]} />
+            <meshStandardMaterial color="#c9ccd3" metalness={1} roughness={0.25} />
+          </mesh>
+        </group>
+      ))}
+      {[-0.62, 0.62].map((x) => (
+        <mesh key={x} position={[x, 0.82, 2.16]}>
+          <boxGeometry args={[0.42, 0.16, 0.04]} />
+          <meshStandardMaterial color="#fffbe8" emissive="#fff3c8" emissiveIntensity={0.8} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 function Cars() {
   const cars = useRef<THREE.Group>(null);
-  const colors = ["#a7b3c9", "#d8c39a", "#7f8ca6", "#e4b7c4", "#b5c8b0"];
+  const colors = ["#a7b3c9", "#d8c39a", "#7f8ca6", "#e4b7c4", "#b5c8b0", "#8d97a8"];
   useFrame(({ clock }) => {
     if (!cars.current) return;
     const t = clock.elapsedTime * 0.06;
     cars.current.children.forEach((c, i) => {
       const a = t + (i / colors.length) * Math.PI * 2;
-      const r = 42;
+      const r = i % 2 ? 40.5 : 43.5;
       c.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
       c.rotation.y = -a;
     });
@@ -144,30 +181,57 @@ function Cars() {
     <group ref={cars} position={[PLAZA.x, 0, PLAZA.z]}>
       {colors.map((c) => (
         <group key={c}>
-          <group rotation={[0, 0, 0]}>
-            <mesh position={[0, 0.85, 0]} castShadow>
-              <boxGeometry args={[2, 0.9, 4.2]} />
-              <meshStandardMaterial color={c} roughness={0.35} metalness={0.3} />
-            </mesh>
-            <mesh position={[0, 1.6, -0.3]} castShadow>
-              <boxGeometry args={[1.8, 0.7, 2.4]} />
-              <meshStandardMaterial color="#9fb3cc" roughness={0.1} metalness={0.6} />
-            </mesh>
-            {[
-              [-0.95, 1.3],
-              [0.95, 1.3],
-              [-0.95, -1.3],
-              [0.95, -1.3],
-            ].map(([x, z]) => (
-              <mesh key={`${x}${z}`} position={[x, 0.42, z]} rotation={[0, 0, Math.PI / 2]}>
-                <cylinderGeometry args={[0.42, 0.42, 0.3, 12]} />
-                <meshStandardMaterial color="#222" />
-              </mesh>
-            ))}
-          </group>
+          <Car color={c} />
         </group>
       ))}
     </group>
+  );
+}
+
+/** Far city blocks, seen from above during the skydive. */
+function CityGrid() {
+  const ref = useRef<THREE.InstancedMesh>(null);
+  const count = 900;
+  const setup = (mesh: THREE.InstancedMesh | null) => {
+    if (!mesh) return;
+    const r = rng(21);
+    const d = new THREE.Object3D();
+    const c = new THREE.Color();
+    let n = 0;
+    for (let gx = -16; gx <= 16 && n < count; gx++) {
+      for (let gz = -16; gz <= 16 && n < count; gz++) {
+        const x = gx * 22;
+        const z = gz * 22;
+        const dist = Math.hypot(x, z);
+        if (dist < 100 || dist > 380) continue;
+        const h = 8 + r() * (dist < 200 ? 22 : 14) + (r() > 0.94 ? 30 : 0);
+        d.position.set(PLAZA.x + x + (r() - 0.5) * 4, h / 2, PLAZA.z + z + (r() - 0.5) * 4);
+        d.scale.set(14 + r() * 4, h, 14 + r() * 4);
+        d.rotation.set(0, 0, 0);
+        d.updateMatrix();
+        mesh.setMatrixAt(n, d.matrix);
+        mesh.setColorAt(n, c.set(PASTELS[Math.floor(r() * PASTELS.length)]));
+        n++;
+      }
+    }
+    mesh.count = n;
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    mesh.computeBoundingSphere();
+  };
+  return (
+    <instancedMesh
+      ref={(m) => {
+        (ref as { current: THREE.InstancedMesh | null }).current = m;
+        setup(m);
+      }}
+      args={[undefined, undefined, count]}
+      castShadow
+      receiveShadow
+    >
+      <boxGeometry />
+      <meshStandardMaterial roughness={0.85} />
+    </instancedMesh>
   );
 }
 
@@ -183,6 +247,7 @@ export function ContactZone() {
       for (let i = 0; i < count; i++) {
         const a = (i / count) * Math.PI * 2;
         if (Math.sin(a) > 0.86 && radius < 70) continue; // keep the view open toward the camera
+        if (Math.sin(a) < -0.93) continue; // the finale townhouse stands here
         items.push({
           x: P.x + Math.cos(a) * radius,
           z: P.z + Math.sin(a) * radius,
@@ -254,6 +319,8 @@ export function ContactZone() {
       ))}
 
       <Cars />
+      <CityGrid />
+      <Room />
     </group>
   );
 }

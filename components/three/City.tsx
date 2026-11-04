@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import * as THREE from "three";
-import { getWindowTexture, mergeColored, tint } from "@/lib/geo";
+import { getGrain, getWindowTexture, mergeColored, tint } from "@/lib/geo";
 
 export type Footprint = {
   x: number;
@@ -105,14 +105,22 @@ export function City({ items }: { items: Footprint[] }) {
   }, [items]);
 
   const tex = useMemo(() => getWindowTexture(), []);
+  const grain = useMemo(() => getGrain(), []);
 
   return (
     <group>
       <mesh geometry={walls} castShadow receiveShadow>
-        <meshStandardMaterial vertexColors map={tex} roughness={0.92} />
+        <meshStandardMaterial
+          vertexColors
+          map={tex}
+          normalMap={grain.normal}
+          normalScale={new THREE.Vector2(0.5, 0.5)}
+          roughnessMap={grain.rough}
+          roughness={1}
+        />
       </mesh>
       <mesh geometry={roofs} castShadow receiveShadow>
-        <meshStandardMaterial vertexColors roughness={0.9} flatShading />
+        <meshStandardMaterial vertexColors roughness={0.75} metalness={0.15} flatShading />
       </mesh>
     </group>
   );

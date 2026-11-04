@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useState } from "react";
 import { startScroll } from "@/lib/scroll";
-import { Controls, HeroTitle, Letterbox, Loader, Outro, ScrollHint, Skills } from "./ui/Overlay";
+import { ContactForm, Controls, HeroTitle, Letterbox, Loader, Outro, ScrollHint, Skills } from "./ui/Overlay";
 
 // WebGL only runs in the browser.
 const Experience = dynamic(() => import("./three/Experience"), { ssr: false });
@@ -27,6 +27,7 @@ export default function Portfolio() {
       <HeroTitle />
       <Skills />
       <ScrollHint />
+      <ContactForm />
       <Outro />
       <Controls />
       <Loader ready={ready} />
