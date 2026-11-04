@@ -113,7 +113,7 @@ export function Room() {
     // curtains framing the back window
     for (const sx of [-1, 1]) {
       const c = new THREE.BoxGeometry(1.1, 4.4, 0.15);
-      c.translate(P.x + sx * 2.2, F + 3.2, zBack + 0.5);
+      c.translate(P.x + sx * 2.9, F + 3.2, zBack + 0.5);
       pink.push(c);
     }
     return { wood: merge(wood), fabric: merge(fabric), pink: merge(pink) };
@@ -191,10 +191,10 @@ export function Room() {
       </group>
 
       <group ref={textRef}>
-        <Text font={LIGHT_FONT} fontSize={0.5} letterSpacing={0.15} position={[P.x, F + 5.2, zBack + 0.06]} color="#ffffff" fillOpacity={0}>
+        <Text font={LIGHT_FONT} fontSize={0.44} letterSpacing={0.1} position={[P.x, F + 5.2, zBack + 0.06]} color="#ffffff" fillOpacity={0}>
           Thank You
         </Text>
-        <Text font={LIGHT_FONT} fontSize={0.5} letterSpacing={0.15} position={[P.x, F + 1.42, zBack + 0.06]} color="#ffffff" fillOpacity={0}>
+        <Text font={LIGHT_FONT} fontSize={0.44} letterSpacing={0.1} position={[P.x, F + 1.42, zBack + 0.06]} color="#ffffff" fillOpacity={0}>
           For Visiting
         </Text>
       </group>
