@@ -4,13 +4,23 @@ A cinematic, scroll-driven 3D journey with a realistic character:
 
 1. **Hero** — a round stone quay at sunset, the character leaning on an ornate lamp, birds over the river.
 2. **Welcome** — the camera swoops down to the water (real-time reflections, sun glint), past the lower riverside walk with benches, and flies through a bridge arch with words painted inside.
-3. **About** — 3D "ABOUT ME" letters, then "HI!" lifts off the road into the bio panel while the character materialises next to a vintage scooter.
-4. **Ride** — through the tower's legs, past the ferris wheel and kiosk, under the "Skill Zone" gate, through a narrow passage to "MY WORK" and a Gothic cathedral, into the sun (lens flare), under a viaduct — skills appear one by one.
-5. **Statue** — up a stone obelisk to a golden statue holding a ring, then into the clouds.
-6. **Work** — project cards floating above a pink sea of clouds (hover to flip).
+3. **About** — 3D `<About />` letters, then "HI!" lifts off the road into the bio panel while the character materialises next to a vintage scooter.
+4. **Ride** — through the tower's legs, past the ferris wheel and kiosk, under the "Skill Zone" gate, through a narrow passage to `<Work />` and a Gothic cathedral, into the sun (lens flare), under a viaduct — skills appear one by one.
+5. **Statue** — up a stone obelisk to a golden statue holding up a `</>`, then into the clouds.
+6. **Work** — projects as browser windows floating above a pink sea of clouds (hover for details, click for the case study).
 7. **Skydive** — free-fall with a backpack through white clouds, then a top-down reveal of the city.
-8. **Contact** — a plaza with a chrome sculpture, "GET IN TOUCH" letters, clickable contact icons, moving cars and a contact form.
-9. **Finale** — through the sculpture and a townhouse window into a room that says "Thank You For Visiting".
+8. **Contact** — a plaza with a chrome sculpture, `getInTouch()` letters, clickable contact icons, moving cars and a contact form.
+9. **Finale** — through the sculpture and a townhouse window into a developer workspace (code on the monitors) that says "Thank You For Visiting".
+
+## Built for developers (and recruiters)
+
+- **Inspector mode** — press <kbd>I</kbd> (or the `</>` button): the world turns into a wireframe blueprint and a panel shows live FPS, frame time, draw calls, triangles, textures, the quality tier and the code behind the current chapter.
+- **Command palette** — <kbd>⌘K</kbd> / <kbd>Ctrl K</kbd> (or <kbd>/</kbd>): jump to any chapter or case study, toggle sound/inspector, copy the email, open the classic view or the source.
+- **Shortcuts** — <kbd>J</kbd>/<kbd>K</kbd> next/previous chapter, <kbd>S</kbd> sound, <kbd>Esc</kbd> close.
+- **Classic view** (`/classic`) — a fast, server-rendered, accessible version of the whole portfolio, plus a case study per project (`/work/<slug>`) and a "How it's built" page (`/colophon`).
+- **Graceful degradation** — automatic quality tier (`?quality=low|high` to force), WebGL fallback, reduced-motion hint, skip link, opt-in sound.
+- **SEO** — metadata, generated Open Graph image, sitemap, robots and Person JSON-LD.
+- **Easter egg** — open DevTools.
 
 ## Stack
 
@@ -33,7 +43,7 @@ pnpm build && pnpm start
 
 | What | Where |
 | --- | --- |
-| Name, about text, skills, projects, contact links | `lib/content.ts` |
+| Name, role, about, experience, stack, projects & case studies, contact | `lib/content.ts` (search for `TODO`) |
 | Scroll timing of each chapter | `lib/timeline.ts` |
 | Camera path, road and landmark positions | `lib/world.ts` |
 | Character poses / outfit colours | `components/three/Human.tsx` |

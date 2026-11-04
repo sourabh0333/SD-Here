@@ -307,7 +307,7 @@ export function RideZone() {
         ]}
       />
       <Passage />
-      <Letters text="MY WORK" size={4.8} position={[MYWORK.x - 3, 0, MYWORK.z]} rotation={[0, 0.28, 0]} color="#c94f62" />
+      <Letters text="<Work />" size={4.8} position={[MYWORK.x - 3, 0, MYWORK.z]} rotation={[0, 0.28, 0]} color="#c94f62" />
       <Cathedral />
       <Bridge
         position={[5.6, 0, VIADUCT_Z]}
